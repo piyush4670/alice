@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Environment variables
+.env
+
+# Virtual environments
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Personal data
+data/profile.json
+data/reminders.json
+data/notes.json
+data/todos.json
+
+# Session
+Session/
+
