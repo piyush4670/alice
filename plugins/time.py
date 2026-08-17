@@ -1,6 +1,12 @@
 from datetime import datetime
 
+from core.personality import DATE_REPLY, TIME_REPLY
 from core.response import success
+
+DATE_PATTERNS = (
+    "date",
+    "day",
+)
 
 
 def current_time():
@@ -8,7 +14,7 @@ def current_time():
     now = datetime.now()
 
     return success(
-        f"The current time is {now.strftime('%I:%M %p')}.",
+        TIME_REPLY.format(time=now.strftime("%I:%M %p").lstrip("0")),
         source="time",
     )
 
@@ -18,22 +24,16 @@ def today():
     now = datetime.now()
 
     return success(
-        f"Today is {now.strftime('%A, %d %B %Y')}.",
+        DATE_REPLY.format(date=now.strftime("%A, %d %B %Y")),
         source="time",
     )
 
 
 def handle(message: str):
 
-    message = message.lower().strip()
+    text = (message or "").lower()
 
-    if "time" in message:
+    if "time" in text:
         return current_time()
 
-    if "date" in message or "today" in message:
-        return today()
-
-    return success(
-        "I couldn't understand your time request.",
-        source="time",
-    )
+    return today()

@@ -1,6 +1,6 @@
 from collections import deque
 
-MAX_HISTORY = 20
+from core.config import MAX_HISTORY
 
 _history = deque(maxlen=MAX_HISTORY)
 
@@ -22,4 +22,3 @@ def clear_history():
 
 def history_size():
     return len(_history)
-

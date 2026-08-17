@@ -1,103 +1,179 @@
 # ALICE Development Session
 
-Version: 1.0
+Version: 1.1
 
-Last Updated: July 2026
+Last Updated: August 2026
 
-Status: ALICE v1.0 Stable
-
----
-
-# Session Summary
-
-This session focused on completing the first stable version of ALICE without changing the core architecture.
-
-The architecture remained unchanged throughout development.
-
-All new capabilities were added as independent modules.
+Status: ALICE v1.1 Stable
 
 ---
 
-# Completed During This Phase
+# Sprint 11 — Hardening
 
-## Core
-
-✅ Stable modular architecture
-
-✅ Router / Decision separation
-
-✅ Standard Response model
-
-✅ Personality system
-
-✅ Conversation context
+This session fixed every defect recorded in `docs/ANALYSIS.md` and added
+the project's first test suite. The architecture was not redesigned; all
+changes were made within the existing structure.
 
 ---
 
-## AI
+## Security
 
-✅ Prompt engineering
+### eval() removed
 
-✅ Reasoning layer
+`plugins/calculator.py` evaluated user input with
+`eval(expression, {"__builtins__": {}}, {})`. Blanking builtins is not a
+sandbox — the object graph remains reachable:
 
-✅ Follow-up understanding
+```
+calculate (1).__class__.__mro__[1].__subclasses__()
+```
 
-✅ Topic continuity
+returned the full class list, from which `os` and arbitrary code execution
+are a short walk. `calculate 9**9**9` hung the process indefinitely.
 
-✅ Pronoun resolution
-
-✅ User goal detection
-
-✅ Detail level detection
-
----
-
-## Memory
-
-✅ Remember information
-
-✅ Recall information
-
-✅ Forget information
-
-✅ List stored memories
-
-✅ Persistent JSON storage
+Replaced with `utils/safe_math.py`, an AST walker that accepts only
+`Expression`, `BinOp`, `UnaryOp` and numeric `Constant` nodes. Exponent
+magnitude is capped before evaluation. 25 security tests pin this.
 
 ---
 
-## Productivity
+## Reliability
 
-### Reminder System
+### First-run crash
 
-Completed:
+`memory/storage.py` wrote to `data/profile.json` without creating the
+parent directory, and `data/` is gitignored. The first fact a new user
+stated raised `FileNotFoundError` and killed the session.
 
-- Add reminders
-- List reminders
-- Delete reminders
-- Persistent reminder storage
+Fixed with `mkdir(parents=True, exist_ok=True)`. All writes are now
+atomic via a temp file plus `os.replace`, so an interrupted save cannot
+truncate a file.
 
----
+### The conversation loop survives failures
 
-### Notes System
-
-Completed:
-
-- Add notes
-- List notes
-- Delete notes
-- Persistent note storage
+`main.py` now catches unexpected exceptions per message and returns a
+recovery response instead of terminating. `Ctrl-C` and `Ctrl-D` exit
+politely.
 
 ---
 
-## Plugins
+## Routing
 
-Completed plugins:
+### Time keywords no longer hijack the router
 
-- Calculator
-- Time
-- Reminder
-- Notes
+`decision.py` matched `time`, `date` and `today` as substrings, before
+every structured intent. Four working subsystems were unreachable:
+
+| Message | Was | Now |
+|---|---|---|
+| `remind me to call mom at 5 pm today` | time | reminder |
+| `note that the meeting is today` | time | notes |
+| `add task finish the report on time` | time | todo |
+| `what is my birth date` | time | memory recall |
+| `what's the best time to visit Japan` | time | ai |
+
+Time matching is now anchored on word boundaries and runs *after* intent
+extraction.
+
+### Greeting prefixes no longer swallow requests
+
+`hey can you calculate 5+5` returned a greeting. Greetings are now only
+matched when the message is nothing but a greeting; otherwise the prefix
+is stripped and the remainder routed. Polite wrappers (`can you`,
+`please`) are stripped the same way.
+
+---
+
+## Correctness
+
+### Reminder time parsing
+
+The greedy `at` split destroyed both fields:
+
+| Message | Was | Now |
+|---|---|---|
+| `remind me to look at the report at 5pm` | task=`look` time=`the report at 5pm` | task=`look at the report` time=`5pm` |
+| `remind me to call mom tomorrow` | time=`None` | time=`tomorrow` |
+| `remind me to call mom tomorrow at 5pm` | task=`call mom tomorrow` | task=`call mom` time=`tomorrow 5pm` |
+
+Time clauses are now anchored to the end of the string and ordered most
+specific first.
+
+### Memory no longer stores conversation
+
+The bare `^my (.+?) is (.+)$` pattern stored ordinary chat as permanent
+facts — `my question is why is the sky blue` became a stored "question",
+which then polluted every future AI prompt. Added a `looks_like_fact`
+guard on key length, question words, non-fact keys and value shape, plus
+an explicit `remember that my X is Y` form that always stores.
+
+### Response.message is always a string
+
+`list_all()` in all three list plugins assigned a raw Python list to
+`message`, which `core/models.py` types as `str`. Formatting moved into
+`list_all()`; the structured list goes in `.data`, as the Response model
+intends. This also removed the duplicated formatting loops in `handle()`.
+
+### Prompt construction
+
+- Memory and history are rendered as prose, not Python `repr`.
+- The current message was appearing four times in one prompt; it now
+  appears once.
+- `detect_topic` reported the message being answered as the previous
+  topic; detectors now receive the current message and skip it.
+- History and memory sections are capped by character budget.
+- Removed the dead `notes` field from `analyze()`.
+
+---
+
+## Maintainability
+
+- `core/config.py` is now the single source of truth. `MEMORY_FILE`,
+  `MAX_HISTORY` and `USER_TITLE` were duplicated in three modules, so
+  editing config had no effect. Paths are overridable via
+  `ALICE_DATA_DIR`.
+- The ten unused personality templates are now actually used; the
+  hardcoded duplicates in five modules are gone.
+- JSON list I/O was triplicated across reminders, notes and to-dos. It
+  now lives in `utils/store.py`.
+- `decide()` returns the parsed intent, so handlers no longer re-parse
+  every message. Extraction runs once instead of twice.
+- Deleted four empty placeholder modules in `responses/`.
+- Missing API key now gives a clear, actionable message instead of a
+  failed HTTP request.
+
+---
+
+## Project Infrastructure
+
+Added:
+
+- `tests/` — 168 tests, offline, under a second
+- `requirements.txt` and `requirements-dev.txt`
+- `README.md`
+- `.env.example`
+- `.github/workflows/tests.yml` — CI on Python 3.9, 3.11, 3.12
+- `pytest.ini`
+
+---
+
+# Testing Summary
+
+```bash
+python -m pytest
+168 passed
+```
+
+| Suite | Covers |
+|---|---|
+| `test_safe_math.py` | arithmetic, sandbox escapes, resource exhaustion |
+| `test_decision.py` | every routing case, including all former misroutes |
+| `test_extractors.py` | memory, reminder, note and to-do parsing |
+| `test_storage_and_plugins.py` | persistence, lifecycles, the message/data contract |
+| `test_prompts_and_reasoning.py` | prompt rendering, topic detection, budgets |
+| `test_router.py` | end-to-end through `route()` |
+
+Every defect in `docs/ANALYSIS.md` has a regression test.
 
 ---
 
@@ -105,143 +181,23 @@ Completed plugins:
 
 Status:
 
-🟢 Frozen
+🟢 Frozen — unchanged this sprint
 
-Current flow:
+Verified mechanically:
 
-```
-User
-   │
-   ▼
-main.py
-   │
-   ▼
-router.py
-   │
-   ▼
-decision.py
-   │
-   ├──────────────┬──────────────┐
-   ▼              ▼              ▼
-Memory        Plugins         AI System
-```
-
-Future work must extend this architecture rather than redesign it.
-
----
-
-# Testing Summary
-
-Completed:
-
-✅ Greeting system
-
-✅ Goodbye system
-
-✅ Calculator
-
-✅ Time
-
-✅ Memory learning
-
-✅ Memory recall
-
-✅ Memory forget
-
-✅ Memory listing
-
-✅ Reminder add
-
-✅ Reminder list
-
-✅ Reminder delete
-
-✅ Notes add
-
-✅ Notes list
-
-✅ Notes delete
-
-✅ AI conversation
-
-✅ Follow-up conversation
-
-✅ Topic continuity
-
-✅ Pronoun resolution
-
-✅ Context awareness
-
-No regressions were detected during testing.
-
----
-
-# Known Improvements
-
-These are enhancements, not bugs:
-
-- Preserve original capitalization when storing memory.
-- Preserve original capitalization for reminders.
-- Detect duplicate reminders.
-- Detect duplicate notes.
-- Improve reminder formatting.
-
-These improvements are low priority.
+- `main` → `core` → `ai` / `memory` / `plugins`
+- No plugin imports another plugin
+- No module imports the router
+- No circular imports
 
 ---
 
 # Next Sprint
 
-Sprint 10
+Phase 3 — Internet
 
-Goal:
+Goal: web search and live information.
 
-Build a modular To-Do List system.
-
-Planned features:
-
-- Add tasks
-- List tasks
-- Complete tasks
-- Delete tasks
-- Persistent storage
-
-The implementation should follow the same architecture used by Memory, Reminders and Notes.
-
----
-
-# Engineering Rules
-
-Before implementing any feature:
-
-1. Read the existing module.
-2. Analyze the architecture.
-3. Rewrite only when necessary.
-4. Test immediately.
-5. Avoid regressions.
-
-Architecture modifications require strong justification.
-
----
-
-# Current Project Status
-
-Project:
-
-ALICE
-
-Version:
-
-v1.0
-
-Architecture:
-
-🟢 Stable
-
-Documentation:
-
-🟢 Updated
-
-Development:
-
-Ready for Sprint 10.
+Before starting, note that a search extractor will join the extractor
+chain, and that network calls should reuse the timeout and error handling
+already in `ai/chat.py`.

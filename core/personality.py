@@ -1,6 +1,6 @@
-NAME = "ALICE"
+from core.config import ASSISTANT_NAME, USER_TITLE
 
-USER_TITLE = "Boss"
+NAME = ASSISTANT_NAME
 
 VOICE_STYLE = "Professional"
 
@@ -22,7 +22,10 @@ PERSONAL_NAME = None
 
 def set_user(name: str):
     global PERSONAL_NAME
-    PERSONAL_NAME = name.strip().title()
+
+    name = (name or "").strip()
+
+    PERSONAL_NAME = name.title() if name else None
 
 
 def boss():
@@ -58,42 +61,48 @@ GOODBYE_MESSAGE = (
 # Memory
 # -----------------------------
 
-MEMORY_CONFIRM = (
-    "I'll remember your {key}, {title}. {heart}"
-)
+MEMORY_CONFIRM = "Got it, {title}. I'll remember your {key}. {heart}"
 
-MEMORY_RECALL = (
-    "Your {key} is {value}. {heart}"
-)
+MEMORY_UPDATED = "Updated your {key}, {title}. {heart}"
 
-MEMORY_UNKNOWN = (
-    "I don't know your {key} yet, {title}."
-)
+MEMORY_KNOWN = "I already know your {key}, {title}."
+
+MEMORY_RECALL = "Your {key} is {value}."
+
+MEMORY_UNKNOWN = "I don't know your {key} yet, {title}."
+
+MEMORY_FORGOTTEN = "I've forgotten your {key}, {title}."
+
+MEMORY_MISSING = "I don't have your {key} stored, {title}."
+
+MEMORY_EMPTY = "I don't know anything about you yet."
+
+MEMORY_LIST_HEADER = "Here's what I know about you:"
 
 # -----------------------------
 # Calculator
 # -----------------------------
 
-CALCULATOR_REPLY = (
-    "The result is {result}, {title}."
-)
+CALCULATOR_REPLY = "The result is {result}, {title}."
 
 # -----------------------------
 # Time
 # -----------------------------
 
-TIME_REPLY = (
-    "The current time is {time}."
-)
+TIME_REPLY = "The current time is {time}."
 
-DATE_REPLY = (
-    "Today is {date}."
-)
+DATE_REPLY = "Today is {date}."
 
 # -----------------------------
 # AI
 # -----------------------------
 
 AI_UNAVAILABLE = (
-    "My AI brain is temporarily unavailable, {title}. Please try again in a moment."
+    "My AI brain is temporarily unavailable, {title}. "
+    "Please try again in a moment."
+)
+
+AI_NO_KEY = (
+    "My AI brain isn't configured yet, {title}. "
+    "Add an API_KEY to your .env file and I'll be right back."
 )

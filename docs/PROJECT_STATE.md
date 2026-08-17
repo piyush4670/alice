@@ -1,10 +1,10 @@
 # ALICE Project State
 
-Version: 3.0
+Version: 3.1
 
 Status: Active Development
 
-Last Updated: July 2026
+Last Updated: August 2026
 
 ---
 
@@ -320,13 +320,16 @@ ALICE can currently:
 
 ✅ Long-term memory integration
 
+✅ To-do list management
+
+✅ Greeting and politeness prefix handling
+
 ---
 
 # Current Limitations
 
 Not yet implemented:
 
-- To-do lists
 - Scheduling
 - Reminder execution
 - Internet access
@@ -362,7 +365,7 @@ Features are added without redesigning the existing system.
 
 Current milestone:
 
-**ALICE v1.0**
+**ALICE v1.1**
 
 Completed:
 
@@ -372,14 +375,46 @@ Completed:
 - Context awareness
 - Reminders
 - Notes
+- To-do lists
+- Sprint 11 hardening
 
 Next milestone:
 
-Sprint 10
+Phase 3 - Internet
 
 Goal:
 
-Implement a modular To-Do List system using the existing architecture.
+Add web search and live information using the existing architecture.
+
+---
+
+# Testing
+
+Directory:
+
+```
+tests/
+```
+
+168 tests covering routing, extraction, persistence, prompt construction
+and arithmetic safety. They run offline in under a second and never touch
+real user data.
+
+```bash
+python -m pytest
+```
+
+Every defect recorded in `docs/ANALYSIS.md` has a regression test.
+
+---
+
+# Security
+
+User input never reaches `eval()`. Arithmetic uses the AST evaluator in
+`utils/safe_math.py`, which whitelists numeric literals and the documented
+operators and rejects every other syntax node.
+
+Writes to disk are atomic, so an interrupted save cannot corrupt a file.
 
 ---
 
@@ -391,7 +426,15 @@ Architecture
 
 Code Quality
 
-🟢 Excellent
+🟢 Good
+
+Test Coverage
+
+🟢 168 tests
+
+Security
+
+🟢 Hardened
 
 Documentation
 
@@ -403,4 +446,4 @@ Development Progress
 
 Project Readiness
 
-Ready for Sprint 10 development.
+Ready for Phase 3 development.

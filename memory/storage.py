@@ -1,8 +1,8 @@
 import json
-from pathlib import Path
+import os
+import tempfile
 
-
-MEMORY_FILE = Path("data/profile.json")
+from core.config import MEMORY_FILE
 
 
 def load_memory():
@@ -11,14 +11,36 @@ def load_memory():
         return {}
 
     try:
-        with open(MEMORY_FILE, "r") as file:
-            return json.load(file)
+        with open(MEMORY_FILE, "r", encoding="utf-8") as file:
+            data = json.load(file)
 
-    except Exception:
+    except (OSError, ValueError):
         return {}
+
+    if not isinstance(data, dict):
+        return {}
+
+    return data
 
 
 def save_memory(memory):
+    """Write memory atomically so a crash can never truncate the profile."""
 
-    with open(MEMORY_FILE, "w") as file:
-        json.dump(memory, file, indent=4)
+    MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    handle, temporary_path = tempfile.mkstemp(
+        dir=str(MEMORY_FILE.parent),
+        suffix=".tmp",
+    )
+
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as file:
+            json.dump(memory, file, indent=4, ensure_ascii=False)
+
+        os.replace(temporary_path, MEMORY_FILE)
+
+    except BaseException:
+        if os.path.exists(temporary_path):
+            os.remove(temporary_path)
+
+        raise
