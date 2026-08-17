@@ -1,6 +1,6 @@
 # ALICE v1.1 - Architecture Constitution
 
-Version: 1.1
+Version: 1.2
 Status: Active
 
 ---
@@ -47,25 +47,32 @@ ai/
 - chat.py
 - prompts.py
 - extractor.py
-- reasoning.py (reserved)
+- reasoning.py
+- memory_extractor.py
+- reminder_extractor.py
+- notes_extractor.py
+- todo_extractor.py
 
 memory/
 - storage.py
 - manager.py
-- service.py (reserved)
 
 plugins/
 - calculator.py
 - time.py
 - reminder.py
+- notes.py
+- todo.py
 
 responses/
 - greetings.py
-- ai.py
-- memory.py
-- casual.py
-- errors.py
 - system.py
+
+utils/
+- safe_math.py
+- store.py
+
+tests/
 
 voice/
 - Reserved
@@ -184,29 +191,34 @@ No application logic belongs here.
 
 Responsible for:
 
-- Extracting structured memory information from natural language
+- Dispatching a message to each specialised extractor in turn
 
-Current scope:
+Current extractors:
 
-- Remember
-- Recall
+- memory_extractor.py
+- reminder_extractor.py
+- notes_extractor.py
+- todo_extractor.py
 
-It is NOT a general intent detector.
+Each extractor returns a dict containing an `intent` key, or None.
+The dispatcher returns the first match.
 
 ---
 
 ## ai/reasoning.py
 
-Reserved for future reasoning.
+Responsible for:
 
-Examples:
+- Follow-up detection
+- Detail level detection
+- Topic and active subject detection
+- Conversation stage and intent
+- Question type and user goal
+- Pronoun resolution
 
-- Planning
-- Multi-step thinking
-- Tool orchestration
-- Decision making
-
-No implementation until reasoning is required.
+Every detector is a pure function. The result is summarised into the
+AI prompt. Detectors that read history receive the current message so
+they never report it as the previous topic.
 
 ---
 
@@ -233,15 +245,14 @@ It never performs routing.
 
 ---
 
-## memory/service.py
+## utils/
 
-Reserved for future memory services.
+Shared helpers that belong to no single module.
 
-Examples:
+- `safe_math.py` evaluates arithmetic without eval().
+- `store.py` provides atomic JSON list persistence.
 
-- Memory search
-- Memory ranking
-- Memory summarization
+Plugins depend on utils. Utils depend on nothing.
 
 ---
 
@@ -375,11 +386,8 @@ main.py is the only place responsible for displaying output.
 
 The following remain reserved until needed:
 
-- reasoning.py
 - voice/
 - vision/
-- reminder.py
-- memory/service.py
 
 Do not assign unrelated responsibilities to them.
 
@@ -404,6 +412,16 @@ These architectural decisions are considered stable.
 ✓ Memory extraction handled by extractor.py
 
 ✓ Conversation history handled by context.py
+
+✓ Configuration centralised in core/config.py
+
+✓ No module re-declares a configured value
+
+✓ User input never reaches eval()
+
+✓ Decision returns the parsed intent; handlers never re-parse
+
+✓ Response.message is always a string; structured data goes in .data
 
 ---
 
@@ -435,3 +453,28 @@ The Modules execute.
 The AI assists.
 
 ALICE remains modular.
+
+---
+
+# Security Rules
+
+User input must never reach `eval`, `exec`, `compile`, `pickle` or a shell.
+
+Arithmetic is evaluated by the AST walker in `utils/safe_math.py`, which
+accepts only numeric literals and the documented operators. Every other
+syntax node is rejected.
+
+Any future feature that interprets user input must follow the same
+whitelist approach.
+
+---
+
+# Testing Rules
+
+Every module must have tests. Tests must:
+
+- Run offline, with no network and no API key.
+- Never touch real user data; use the `isolated_data` fixture.
+- Pin the behaviour of every bug that has been fixed.
+
+Run with `python -m pytest`.

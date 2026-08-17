@@ -1,46 +1,30 @@
-import json
-from pathlib import Path
-
 from ai.extractor import extract
-
-from core.response import success, error
-
-
-NOTES_FILE = Path("data/notes.json")
+from core.config import NOTES_FILE
+from core.response import error, success
+from utils.store import load_list, save_list, valid_index
 
 
 def load_notes():
-
-    if not NOTES_FILE.exists():
-        return []
-
-    try:
-        with open(NOTES_FILE, "r") as file:
-            return json.load(file)
-    except Exception:
-        return []
+    return load_list(NOTES_FILE)
 
 
 def save_notes(notes):
-
-    NOTES_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(NOTES_FILE, "w") as file:
-        json.dump(
-            notes,
-            file,
-            indent=4,
-        )
+    save_list(NOTES_FILE, notes)
 
 
-def add(note: str):
+def add(note: str) -> bool:
 
     note = note.strip()
 
+    if not note:
+        return False
+
     notes = load_notes()
 
-    if note in notes:
-        return False
+    for existing in notes:
+
+        if str(existing).lower() == note.lower():
+            return False
 
     notes.append(note)
 
@@ -49,12 +33,30 @@ def add(note: str):
     return True
 
 
+def format_all(notes) -> str:
+
+    lines = [
+        f"{number}. {note}"
+        for number, note in enumerate(notes, start=1)
+    ]
+
+    return "\n".join(lines)
+
+
 def list_all():
+    """Return a printable message plus the structured list in data."""
 
     notes = load_notes()
 
+    if not notes:
+        return success(
+            "You don't have any notes.",
+            source="notes",
+            data=[],
+        )
+
     return success(
-        notes,
+        format_all(notes),
         source="notes",
         data=notes,
     )
@@ -64,9 +66,9 @@ def remove(index):
 
     notes = load_notes()
 
-    if index < 0 or index >= len(notes):
+    if not valid_index(index, notes):
         return error(
-            "Note not found.",
+            "I couldn't find that note.",
             source="notes",
         )
 
@@ -80,57 +82,29 @@ def remove(index):
     )
 
 
-def handle(message: str):
+def handle(message: str, intent: dict = None):
 
-    data = extract(message)
+    data = intent if intent is not None else extract(message)
 
     if data is None:
-
         return error(
             "I couldn't understand that note request.",
             source="notes",
         )
 
-    if data["intent"] == "note_add":
+    name = data.get("intent")
+
+    if name == "note_add":
 
         if add(data["note"]):
+            return success("Note saved.", source="notes")
 
-            return success(
-                "Note saved.",
-                source="notes",
-            )
+        return success("That note already exists.", source="notes")
 
-        return success(
-            "That note already exists.",
-            source="notes",
-        )
+    if name == "note_list":
+        return list_all()
 
-    if data["intent"] == "note_list":
-
-        notes = list_all()
-
-        if not notes.data:
-
-            return success(
-                "You don't have any notes.",
-                source="notes",
-            )
-
-        lines = []
-
-        for index, note in enumerate(notes.data, start=1):
-            lines.append(f"{index}. {note}")
-
-        return success(
-            "\n".join(lines),
-            source="notes",
-        )
-
-    if data["intent"] == "note_delete":
-
+    if name == "note_delete":
         return remove(data["index"])
 
-    return error(
-        "Unknown note operation.",
-        source="notes",
-    )
+    return error("Unknown note operation.", source="notes")

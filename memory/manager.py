@@ -1,35 +1,43 @@
 from ai.extractor import extract
-
+from core.personality import (
+    MEMORY_CONFIRM,
+    MEMORY_EMPTY,
+    MEMORY_FORGOTTEN,
+    MEMORY_KNOWN,
+    MEMORY_LIST_HEADER,
+    MEMORY_MISSING,
+    MEMORY_RECALL,
+    MEMORY_UNKNOWN,
+    MEMORY_UPDATED,
+    SIGNATURE,
+    boss,
+)
+from core.response import error, success
 from memory.storage import load_memory, save_memory
-
-from core.response import success, error
-from core.personality import boss
 
 
 def remember(key: str, value):
+    """Return 'created', 'updated' or 'unchanged'."""
 
     memory = load_memory()
 
     existing = memory.get(key)
 
     if existing == value:
-        return False
+        return "unchanged"
 
     memory[key] = value
 
     save_memory(memory)
 
-    return True
+    return "updated" if existing is not None else "created"
 
 
 def recall(key: str):
-
-    memory = load_memory()
-
-    return memory.get(key)
+    return load_memory().get(key)
 
 
-def forget(key: str):
+def forget(key: str) -> bool:
 
     memory = load_memory()
 
@@ -43,100 +51,113 @@ def forget(key: str):
     return True
 
 
-def exists(key: str):
-
-    memory = load_memory()
-
-    return key in memory
+def exists(key: str) -> bool:
+    return key in load_memory()
 
 
 def all_memory():
-
     return load_memory()
 
 
-def handle(message: str):
+def handle_remember(data):
 
-    data = extract(message)
+    outcome = remember(data["key"], data["value"])
+
+    if outcome == "created":
+        return success(
+            MEMORY_CONFIRM.format(
+                title=boss(),
+                key=data["key"],
+                heart=SIGNATURE,
+            ),
+            source="memory",
+        )
+
+    if outcome == "updated":
+        return success(
+            MEMORY_UPDATED.format(
+                title=boss(),
+                key=data["key"],
+                heart=SIGNATURE,
+            ),
+            source="memory",
+        )
+
+    return success(
+        MEMORY_KNOWN.format(title=boss(), key=data["key"]),
+        source="memory",
+    )
+
+
+def handle_recall(data):
+
+    value = recall(data["key"])
+
+    if value is None:
+        return success(
+            MEMORY_UNKNOWN.format(title=boss(), key=data["key"]),
+            source="memory",
+        )
+
+    return success(
+        MEMORY_RECALL.format(key=data["key"], value=value),
+        source="memory",
+        data=value,
+    )
+
+
+def handle_forget(data):
+
+    if forget(data["key"]):
+        return success(
+            MEMORY_FORGOTTEN.format(title=boss(), key=data["key"]),
+            source="memory",
+        )
+
+    return success(
+        MEMORY_MISSING.format(title=boss(), key=data["key"]),
+        source="memory",
+    )
+
+
+def handle_list():
+
+    memory = all_memory()
+
+    if not memory:
+        return success(MEMORY_EMPTY, source="memory")
+
+    facts = [f"- {key}: {value}" for key, value in memory.items()]
+
+    return success(
+        MEMORY_LIST_HEADER + "\n\n" + "\n".join(facts),
+        source="memory",
+        data=memory,
+    )
+
+
+def handle(message: str, intent: dict = None):
+
+    data = intent if intent is not None else extract(message)
 
     if data is None:
-
         return error(
             "I couldn't understand that memory request.",
             source="memory",
         )
 
-    if data["intent"] == "remember":
+    name = data.get("intent")
 
-        if remember(
-            data["key"],
-            data["value"],
-        ):
+    if name == "remember":
+        return handle_remember(data)
 
-            return success(
-                f"Got it, {boss()}. I'll remember your {data['key']}. 💙",
-                source="memory",
-            )
+    if name == "recall":
+        return handle_recall(data)
 
-        return success(
-            f"I already know your {data['key']}, {boss()}.",
-            source="memory",
-        )
+    if name == "forget":
+        return handle_forget(data)
 
-    if data["intent"] == "recall":
+    if name == "list":
+        return handle_list()
 
-        value = recall(
-            data["key"],
-        )
-
-        if value is None:
-
-            return success(
-                f"I don't know your {data['key']} yet, {boss()}.",
-                source="memory",
-            )
-
-        return success(
-            f"Your {data['key']} is {value}.",
-            source="memory",
-        )
-
-    if data["intent"] == "forget":
-
-        if forget(data["key"]):
-
-            return success(
-                f"I've forgotten your {data['key']}, {boss()}.",
-                source="memory",
-            )
-
-        return success(
-            f"I don't have your {data['key']} stored, {boss()}.",
-            source="memory",
-        )
-
-    if data["intent"] == "list":
-
-        memory = all_memory()
-
-        if not memory:
-
-            return success(
-                "I don't know anything about you yet.",
-                source="memory",
-            )
-
-        facts = []
-
-        for key, value in memory.items():
-            facts.append(f"{key}: {value}")
-
-        return success(
-            "Here's what I know about you:\n\n" + "\n".join(facts),
-            source="memory",
-        )
-
-    return error(
-        "Unknown memory operation.",
-        source="memory",
-    )
+    return error("Unknown memory operation.", source="memory")

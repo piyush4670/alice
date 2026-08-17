@@ -1,66 +1,70 @@
-from core.decision import decide
-from core.context import get_history
+"""Request routing.
 
-from memory.manager import handle as memory_handle
-from memory.manager import all_memory
-
-from responses.greetings import hello, goodbye
-
-from plugins.calculator import calculate
-from plugins.time import handle as time_handle
-
-from plugins.reminder import handle as reminder_handle
-from plugins.notes import handle as notes_handle
-from plugins.todo import handle as todo_handle
+The Router routes. It never performs business logic.
+"""
 
 from ai.chat import ask
-
+from core.context import get_history
+from core.decision import decide
 from core.response import error
+from memory.manager import all_memory
+from memory.manager import handle as memory_handle
+from plugins.calculator import calculate
+from plugins.notes import handle as notes_handle
+from plugins.reminder import handle as reminder_handle
+from plugins.time import handle as time_handle
+from plugins.todo import handle as todo_handle
+from responses.greetings import goodbye, hello
+from responses.system import empty_message
+
+MEMORY_DESTINATIONS = (
+    "memory_learn",
+    "memory_recall",
+    "memory_forget",
+    "memory_list",
+)
 
 
-def route(message: str, name: str):
+def route(message: str, name: str = None):
 
-    destination = decide(message)
+    decision = decide(message)
+
+    destination = decision.destination
+
+    request = decision.message
+
+    if destination == "empty":
+        return empty_message()
 
     if destination == "greeting":
-        return hello(name)
+        return hello()
 
     if destination == "goodbye":
-        return goodbye(name)
+        return goodbye()
 
-    if destination in (
-        "memory_learn",
-        "memory_recall",
-        "memory_forget",
-        "memory_list",
-    ):
-        return memory_handle(message)
+    if destination in MEMORY_DESTINATIONS:
+        return memory_handle(request, decision.intent)
 
     if destination == "calculator":
-        return calculate(message)
+        return calculate(request)
 
     if destination == "time":
-        return time_handle(message)
+        return time_handle(request)
 
     if destination == "reminder":
-        return reminder_handle(message)
+        return reminder_handle(request, decision.intent)
 
     if destination == "notes":
-        return notes_handle(message)
+        return notes_handle(request, decision.intent)
 
     if destination == "todo":
-        return todo_handle(message)
+        return todo_handle(request, decision.intent)
 
     if destination == "ai":
-
-        history = get_history()
-
-        memory = all_memory()
-
         return ask(
-            message,
-            history,
-            memory,
+            request,
+            get_history(),
+            all_memory(),
         )
 
     return error(

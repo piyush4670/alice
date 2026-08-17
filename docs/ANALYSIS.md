@@ -1,6 +1,7 @@
 # ALICE — Codebase Analysis
 
 Date: 17 August 2026
+Status: **All findings resolved in Sprint 11.** See `docs/SESSION.md`.
 Scope: full repository (2,020 lines of Python across 34 files, 6 documents)
 Method: static reading + empirical execution of every module with stubbed
 `requests` / `dotenv` dependencies. Every issue below was reproduced, not inferred.
@@ -400,19 +401,21 @@ and the missing prompt budget (3-9) are both worth resolving first.
 
 ## 7. Issue Index
 
-| ID | Severity | Location | Issue |
+All items were fixed in Sprint 11. Each has a regression test.
+
+| ID | Severity | Issue | Resolution |
 |---|---|---|---|
-| P0-1 | 🔴 Critical | `plugins/calculator.py:11` | `eval()` sandbox escape + DoS |
-| P0-2 | 🔴 Critical | `memory/storage.py:23` | First-run `FileNotFoundError` |
-| P1-3 | 🔴 High | `core/decision.py:56` | Time keywords hijack routing |
-| P1-4 | 🟠 Medium | `core/decision.py:40` | Greeting swallows the sentence |
-| 3-5 | 🟠 Medium | `reminder/notes/todo.py` | `list` assigned to `message: str` |
-| 3-6 | 🟠 Medium | `ai/reminder_extractor.py:13` | Time clause mangles task text |
-| 3-7 | 🟠 Medium | `ai/memory_extractor.py:65` | Chat stored as permanent facts |
-| 3-8 | 🟠 Medium | `main.py:27` + `ai/reasoning.py:72` | Current message read as prior topic |
-| 3-9 | 🟠 Medium | `ai/prompts.py:80` | Python `repr` in prompt; no budget |
-| 3-10 | 🟡 Low | `core/decision.py:85` | Every message extracted twice |
-| 4-11 | 🟡 Low | `core/config.py` | Config duplicated, never read |
-| 4-12 | 🟡 Low | `core/personality.py` | 10 unused templates; strings hardcoded |
-| 4-13 | 🟡 Low | `responses/`, `docs/` | Empty modules; docs contradict code |
-| 4-14 | 🟠 Medium | repo root | No tests, no manifest, no README |
+| P0-1 | 🔴 Critical | `eval()` sandbox escape + DoS | ✅ `utils/safe_math.py` AST evaluator |
+| P0-2 | 🔴 Critical | First-run `FileNotFoundError` | ✅ atomic writes with `mkdir` |
+| P1-3 | 🔴 High | Time keywords hijack routing | ✅ word-boundary match, runs after intents |
+| P1-4 | 🟠 Medium | Greeting swallows the sentence | ✅ prefix stripped, request routed |
+| 3-5 | 🟠 Medium | `list` assigned to `message: str` | ✅ formatting in `list_all()`, list in `.data` |
+| 3-6 | 🟠 Medium | Time clause mangles task text | ✅ end-anchored patterns, specific first |
+| 3-7 | 🟠 Medium | Chat stored as permanent facts | ✅ `looks_like_fact` guard |
+| 3-8 | 🟠 Medium | Current message read as prior topic | ✅ detectors skip the current message |
+| 3-9 | 🟠 Medium | Python `repr` in prompt; no budget | ✅ prose rendering + char budgets |
+| 3-10 | 🟡 Low | Every message extracted twice | ✅ `Decision` carries the parsed intent |
+| 4-11 | 🟡 Low | Config duplicated, never read | ✅ `core/config.py` is the only source |
+| 4-12 | 🟡 Low | 10 unused templates | ✅ templates wired up, duplicates removed |
+| 4-13 | 🟡 Low | Empty modules; docs contradict code | ✅ deleted; docs reconciled |
+| 4-14 | 🟠 Medium | No tests, no manifest, no README | ✅ 168 tests, requirements, README, CI |

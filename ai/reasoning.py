@@ -69,15 +69,23 @@ def detect_detail_level(message: str):
     return "normal"
 
 
-def detect_topic(history):
+def detect_topic(history, current_message=None):
+    """The previous user topic, never the message being answered."""
 
     if not history:
         return None
 
     for item in reversed(history):
 
-        if item["role"] == "user":
-            return item["message"]
+        if item["role"] != "user":
+            continue
+
+        message = item["message"]
+
+        if current_message is not None and message == current_message:
+            continue
+
+        return message
 
     return None
 
@@ -181,7 +189,7 @@ def detect_conversation_intent(message: str):
     return "general"
 
 
-def detect_active_subject(history):
+def detect_active_subject(history, current_message=None):
 
     if not history:
         return None
@@ -192,6 +200,9 @@ def detect_active_subject(history):
             continue
 
         message = item["message"].strip()
+
+        if current_message is not None and message == current_message.strip():
+            continue
 
         lower = message.lower()
 
@@ -259,9 +270,11 @@ def analyze(message, history, memory):
         ),
         "topic": detect_topic(
             history,
+            message,
         ),
         "active_subject": detect_active_subject(
             history,
+            message,
         ),
         "conversation_stage": detect_conversation_stage(
             message,
@@ -279,5 +292,4 @@ def analyze(message, history, memory):
         "resolved_entities": resolve_entities(
             history,
         ),
-        "notes": [],
     }

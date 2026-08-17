@@ -1,67 +1,72 @@
-import json
-from pathlib import Path
-
 from ai.extractor import extract
-
-from core.response import success, error
-
-
-TODO_FILE = Path("data/todos.json")
+from core.config import TODO_FILE
+from core.response import error, success
+from utils.store import load_list, save_list, valid_index
 
 
 def load_tasks():
-
-    if not TODO_FILE.exists():
-        return []
-
-    try:
-        with open(TODO_FILE, "r") as file:
-            return json.load(file)
-    except Exception:
-        return []
+    return load_list(TODO_FILE)
 
 
 def save_tasks(tasks):
-
-    TODO_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(TODO_FILE, "w") as file:
-        json.dump(
-            tasks,
-            file,
-            indent=4,
-        )
+    save_list(TODO_FILE, tasks)
 
 
-def add(task: str):
+def add(task: str) -> bool:
 
     task = task.strip()
+
+    if not task:
+        return False
 
     tasks = load_tasks()
 
     for existing in tasks:
 
-        if existing["task"] == task:
+        if existing.get("task", "").lower() == task.lower():
             return False
 
-    tasks.append(
-        {
-            "task": task,
-            "completed": False,
-        }
-    )
+    tasks.append({
+        "task": task,
+        "completed": False,
+    })
 
     save_tasks(tasks)
 
     return True
 
 
+def format_task(index: int, task: dict) -> str:
+
+    mark = "x" if task.get("completed") else " "
+
+    return f"{index}. [{mark}] {task.get('task', 'Unknown')}"
+
+
+def format_all(tasks) -> str:
+
+    lines = [
+        format_task(number, task)
+        for number, task in enumerate(tasks, start=1)
+    ]
+
+    return "\n".join(lines)
+
+
 def list_all():
+    """Return a printable message plus the structured list in data."""
 
     tasks = load_tasks()
 
+    if not tasks:
+        return success(
+            "You don't have any tasks.",
+            source="todo",
+            data=[],
+        )
+
     return success(
-        tasks,
+        format_all(tasks),
         source="todo",
         data=tasks,
     )
@@ -71,13 +76,13 @@ def complete(index):
 
     tasks = load_tasks()
 
-    if index < 0 or index >= len(tasks):
+    if not valid_index(index, tasks):
         return error(
-            "Task not found.",
+            "I couldn't find that task.",
             source="todo",
         )
 
-    if tasks[index]["completed"]:
+    if tasks[index].get("completed"):
         return success(
             "That task is already completed.",
             source="todo",
@@ -88,7 +93,7 @@ def complete(index):
     save_tasks(tasks)
 
     return success(
-        "Task marked as completed.",
+        f"Task completed: {tasks[index].get('task', 'Unknown')}",
         source="todo",
     )
 
@@ -97,9 +102,9 @@ def remove(index):
 
     tasks = load_tasks()
 
-    if index < 0 or index >= len(tasks):
+    if not valid_index(index, tasks):
         return error(
-            "Task not found.",
+            "I couldn't find that task.",
             source="todo",
         )
 
@@ -108,14 +113,14 @@ def remove(index):
     save_tasks(tasks)
 
     return success(
-        f"Removed task: {removed['task']}",
+        f"Removed task: {removed.get('task', 'Unknown')}",
         source="todo",
     )
 
 
-def handle(message: str):
+def handle(message: str, intent: dict = None):
 
-    data = extract(message)
+    data = intent if intent is not None else extract(message)
 
     if data is None:
         return error(
@@ -123,55 +128,22 @@ def handle(message: str):
             source="todo",
         )
 
-    if data["intent"] == "todo_add":
+    name = data.get("intent")
+
+    if name == "todo_add":
 
         if add(data["task"]):
+            return success("Task added.", source="todo")
 
-            return success(
-                "Task added.",
-                source="todo",
-            )
+        return success("That task already exists.", source="todo")
 
-        return success(
-            "That task already exists.",
-            source="todo",
-        )
+    if name == "todo_list":
+        return list_all()
 
-    if data["intent"] == "todo_list":
-
-        tasks = list_all()
-
-        if not tasks.data:
-
-            return success(
-                "You don't have any tasks.",
-                source="todo",
-            )
-
-        lines = []
-
-        for index, task in enumerate(tasks.data, start=1):
-
-            mark = "✓" if task["completed"] else " "
-
-            lines.append(
-                f"{index}. [{mark}] {task['task']}"
-            )
-
-        return success(
-            "\n".join(lines),
-            source="todo",
-        )
-
-    if data["intent"] == "todo_complete":
-
+    if name == "todo_complete":
         return complete(data["index"])
 
-    if data["intent"] == "todo_delete":
-
+    if name == "todo_delete":
         return remove(data["index"])
 
-    return error(
-        "Unknown task operation.",
-        source="todo",
-    )
+    return error("Unknown task operation.", source="todo")

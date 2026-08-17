@@ -1,48 +1,27 @@
-import json
-from pathlib import Path
-
 from ai.extractor import extract
-
-from core.response import success, error
-
-
-REMINDER_FILE = Path("data/reminders.json")
+from core.config import REMINDER_FILE
+from core.response import error, success
+from utils.store import load_list, save_list, valid_index
 
 
 def load_reminders():
-
-    if not REMINDER_FILE.exists():
-        return []
-
-    try:
-        with open(REMINDER_FILE, "r") as file:
-            return json.load(file)
-    except Exception:
-        return []
+    return load_list(REMINDER_FILE)
 
 
 def save_reminders(reminders):
-
-    REMINDER_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(REMINDER_FILE, "w") as file:
-        json.dump(
-            reminders,
-            file,
-            indent=4,
-        )
+    save_list(REMINDER_FILE, reminders)
 
 
-def add(reminder):
+def add(reminder) -> bool:
 
     reminders = load_reminders()
 
     for existing in reminders:
 
-        if (
-            existing.get("task") == reminder.get("task")
-            and existing.get("time") == reminder.get("time")
-        ):
+        same_task = existing.get("task", "").lower() == reminder["task"].lower()
+        same_time = existing.get("time") == reminder["time"]
+
+        if same_task and same_time:
             return False
 
     reminders.append(reminder)
@@ -52,12 +31,42 @@ def add(reminder):
     return True
 
 
+def format_reminder(index: int, reminder: dict) -> str:
+
+    task = reminder.get("task", "Unknown")
+
+    when = reminder.get("time")
+
+    if when:
+        return f"{index}. {task} ({when})"
+
+    return f"{index}. {task}"
+
+
+def format_all(reminders) -> str:
+
+    lines = [
+        format_reminder(number, reminder)
+        for number, reminder in enumerate(reminders, start=1)
+    ]
+
+    return "\n".join(lines)
+
+
 def list_all():
+    """Return a printable message plus the structured list in data."""
 
     reminders = load_reminders()
 
+    if not reminders:
+        return success(
+            "You don't have any reminders.",
+            source="reminder",
+            data=[],
+        )
+
     return success(
-        reminders,
+        format_all(reminders),
         source="reminder",
         data=reminders,
     )
@@ -67,9 +76,9 @@ def remove(index):
 
     reminders = load_reminders()
 
-    if index < 0 or index >= len(reminders):
+    if not valid_index(index, reminders):
         return error(
-            "Reminder not found.",
+            "I couldn't find that reminder.",
             source="reminder",
         )
 
@@ -78,14 +87,14 @@ def remove(index):
     save_reminders(reminders)
 
     return success(
-        f"Removed reminder: {removed}",
+        f"Removed reminder: {removed.get('task', 'Unknown')}",
         source="reminder",
     )
 
 
-def handle(message: str):
+def handle(message: str, intent: dict = None):
 
-    data = extract(message)
+    data = intent if intent is not None else extract(message)
 
     if data is None:
         return error(
@@ -93,56 +102,24 @@ def handle(message: str):
             source="reminder",
         )
 
-    if data["intent"] == "reminder_add":
+    name = data.get("intent")
 
-        if add(
-            {
-                "task": data["task"],
-                "time": data["time"],
-            }
-        ):
-            return success(
-                "Reminder saved.",
-                source="reminder",
-            )
+    if name == "reminder_add":
 
-        return success(
-            "That reminder already exists.",
-            source="reminder",
-        )
+        added = add({
+            "task": data["task"],
+            "time": data.get("time"),
+        })
 
-    if data["intent"] == "reminder_list":
+        if added:
+            return success("Reminder saved.", source="reminder")
 
-        reminders = list_all()
+        return success("That reminder already exists.", source="reminder")
 
-        if not reminders.data:
-            return success(
-                "You don't have any reminders.",
-                source="reminder",
-            )
+    if name == "reminder_list":
+        return list_all()
 
-        lines = []
-
-        for index, reminder in enumerate(reminders.data, start=1):
-
-            task = reminder.get("task", "Unknown")
-            reminder_time = reminder.get("time")
-
-            if reminder_time:
-                lines.append(f"{index}. {task} ({reminder_time})")
-            else:
-                lines.append(f"{index}. {task}")
-
-        return success(
-            "\n".join(lines),
-            source="reminder",
-        )
-
-    if data["intent"] == "reminder_delete":
-
+    if name == "reminder_delete":
         return remove(data["index"])
 
-    return error(
-        "Unknown reminder operation.",
-        source="reminder",
-    )
+    return error("Unknown reminder operation.", source="reminder")

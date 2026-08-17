@@ -130,6 +130,25 @@ Completed capabilities:
 
 ---
 
+Sprint 11 ✅
+
+Completed:
+
+Hardening
+
+- Replaced eval() with a safe AST arithmetic evaluator
+- Fixed the first-run crash when data/ does not exist
+- Fixed time keywords hijacking the router
+- Fixed greeting prefixes swallowing requests
+- Fixed reminder time parsing mangling tasks
+- Stopped ordinary conversation being stored as memory
+- Response.message is now always a string
+- Centralised configuration in core/config.py
+- Added a 168-test regression suite
+- Added README, requirements and CI
+
+---
+
 Future Development
 
 Phase 3 — Internet
@@ -233,7 +252,7 @@ Current Project Status
 
 Current Version:
 
-ALICE v1.0
+ALICE v1.1
 
 Architecture:
 
@@ -246,6 +265,7 @@ Completed Sprints:
 - ✅ Sprint 8
 - ✅ Sprint 9
 - ✅ Sprint 10
+- ✅ Sprint 11
 
 Current Focus:
 

@@ -1,6 +1,73 @@
 import re
 
 
+# Relative day words are a time value in their own right, not noise to drop.
+DAY_WORDS = (
+    "today",
+    "tonight",
+    "tomorrow",
+    "tomorrow morning",
+    "tomorrow afternoon",
+    "tomorrow evening",
+    "tomorrow night",
+    "tonight",
+    "this evening",
+    "this afternoon",
+    "this morning",
+    "next week",
+    "next monday",
+    "next tuesday",
+    "next wednesday",
+    "next thursday",
+    "next friday",
+    "next saturday",
+    "next sunday",
+)
+
+# A clock time such as "5pm", "5 pm", "17:30", "9 o'clock".
+CLOCK = r"\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.|o'clock)?"
+
+DAY_ALTERNATION = "|".join(
+    re.escape(word) for word in sorted(DAY_WORDS, key=len, reverse=True)
+)
+
+# Ordered most specific first. Each anchors the time clause to the END of
+# the string, so "remind me to look at the report at 5pm" keeps its task.
+ADD_PATTERNS = (
+    # ... <day> at <clock>
+    rf"^remind me to (.+?)\s+(?:on\s+|at\s+)?({DAY_ALTERNATION})\s+at\s+({CLOCK})$",
+    # ... at <clock> on <day>
+    rf"^remind me to (.+?)\s+at\s+({CLOCK})\s+(?:on\s+)?({DAY_ALTERNATION})$",
+    # ... at <clock>
+    rf"^remind me to (.+?)\s+at\s+({CLOCK})$",
+    # ... on <date/day>
+    r"^remind me to (.+?)\s+on\s+(.+)$",
+    # ... <day>
+    rf"^remind me to (.+?)\s+({DAY_ALTERNATION})$",
+    # bare task
+    r"^remind me to (.+)$",
+)
+
+LIST_PHRASES = (
+    "show my reminders",
+    "list my reminders",
+    "show reminders",
+    "list reminders",
+    "what are my reminders",
+    "my reminders",
+)
+
+
+def join_time(parts):
+
+    values = [part.strip() for part in parts if part and part.strip()]
+
+    if not values:
+        return None
+
+    return " ".join(values)
+
+
 def extract(message: str):
 
     original = message.strip()
@@ -10,50 +77,31 @@ def extract(message: str):
     # Add Reminder
     # -------------------------
 
-    patterns = (
-        r"^remind me to (.+?) at (.+)$",
-        r"^remind me to (.+?) on (.+)$",
-        r"^remind me to (.+?) tomorrow(?: at (.+))?$",
-        r"^remind me to (.+)$",
-    )
+    for pattern in ADD_PATTERNS:
 
-    for pattern in patterns:
-
-        match = re.match(
-            pattern,
-            original,
-            re.IGNORECASE,
-        )
+        match = re.match(pattern, original, re.IGNORECASE)
 
         if not match:
             continue
 
-        task = match.group(1).strip()
+        groups = match.groups()
 
-        reminder_time = None
+        task = groups[0].strip().rstrip(",.")
 
-        if len(match.groups()) > 1:
-            reminder_time = match.group(2)
-
-        if reminder_time:
-            reminder_time = reminder_time.strip()
+        if not task:
+            continue
 
         return {
             "intent": "reminder_add",
             "task": task,
-            "time": reminder_time,
+            "time": join_time(groups[1:]),
         }
 
     # -------------------------
     # List Reminders
     # -------------------------
 
-    if lower in (
-        "show my reminders",
-        "list my reminders",
-        "show reminders",
-        "list reminders",
-    ):
+    if lower.rstrip("?.!") in LIST_PHRASES:
 
         return {
             "intent": "reminder_list",
@@ -64,8 +112,8 @@ def extract(message: str):
     # -------------------------
 
     delete = re.match(
-        r"^(?:delete|remove) reminder (\d+)$",
-        lower,
+        r"^(?:delete|remove|clear) reminder (?:number\s+)?(\d+)$",
+        lower.rstrip(".!"),
     )
 
     if delete:

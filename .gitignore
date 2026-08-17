@@ -14,11 +14,10 @@ venv/
 .idea/
 
 # Personal data
-data/profile.json
-data/reminders.json
-data/notes.json
-data/todos.json
+data/
 
 # Session
 Session/
 
+# Test artefacts
+.pytest_cache/

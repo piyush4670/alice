@@ -1,38 +1,28 @@
+from core.personality import (
+    GOODBYE_MESSAGE,
+    HELLO_MESSAGE,
+    WELCOME_MESSAGE,
+    friend,
+)
 from core.response import success
 
-from core.personality import (
-    friend,
-    WELCOME_MESSAGE,
-    HELLO_MESSAGE,
-    GOODBYE_MESSAGE,
-)
 
-
-def welcome(name):
-
+def welcome():
     return success(
-        WELCOME_MESSAGE.format(
-            name=friend(),
-        ),
+        WELCOME_MESSAGE.format(name=friend()),
         source="greetings",
     )
 
 
-def hello(name):
-
+def hello():
     return success(
-        HELLO_MESSAGE.format(
-            name=friend(),
-        ),
+        HELLO_MESSAGE.format(name=friend()),
         source="greetings",
     )
 
 
-def goodbye(name):
-
+def goodbye():
     return success(
-        GOODBYE_MESSAGE.format(
-            name=friend(),
-        ),
+        GOODBYE_MESSAGE.format(name=friend()),
         source="greetings",
     )
