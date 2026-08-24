@@ -447,3 +447,18 @@ Development Progress
 Project Readiness
 
 Ready for Phase 3 development.
+
+---
+
+# v2 — Mission Control (2026)
+
+Shipped:
+
+- Web backend: FastAPI + WebSockets (`server/`), thread-safe event bus.
+- Agent: mission engine, orchestrator, two brains (linked + local), triage.
+- Tools: 19 registered tools including web search, Wikipedia, artifacts.
+- Frontend: futuristic mission-control UI (`frontend/`), no build step.
+- Voice: browser speech synthesis + dictation.
+- CLI (`main.py`) unchanged and fully compatible.
+
+See docs/WEB_ARCHITECTURE.md for the full design.
