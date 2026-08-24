@@ -19,7 +19,7 @@ from agent import conversation, triage
 from core.personality import boss, set_user
 from memory import manager as memory
 
-from server import telemetry
+from server import auth, telemetry
 from server.runtime import bus, orchestrator
 
 HEARTBEAT_SECONDS = 15
@@ -111,6 +111,14 @@ async def _receiver(ws: WebSocket):
 async def socket(ws: WebSocket):
 
     await ws.accept()
+
+    if not auth.authorised(ws):
+
+        await ws.send_text(json.dumps({"type": "auth.required"}))
+
+        await ws.close()
+
+        return
 
     queue = await bus.subscribe()
 

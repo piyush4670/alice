@@ -2,7 +2,7 @@
    Modules are small and single-purpose, mirroring the backend. */
 
 import { set, subscribe, aliceState, state } from "./state.js";
-import { on, send, start } from "./bus.js";
+import { on, send, start, pause as pauseBus, resume as resumeBus } from "./bus.js";
 import { startOrb } from "./core.js";
 import { initVoice, toggleSpeak } from "./voice.js";
 import { setSoundEnabled, sfx } from "./sound.js";
@@ -224,6 +224,74 @@ function wireBus() {
   on("user.updated", (event) => set({ user: event.name }));
 
   on("pong", () => set({ link: "online" }));
+
+  on("auth.required", () => {
+
+    pauseBus();
+
+    document.getElementById("modal-gate").classList.remove("hidden");
+
+    set({ link: "offline" });
+
+    const input = document.getElementById("gate-input");
+
+    if (input) setTimeout(() => input.focus(), 60);
+  });
+}
+
+/* ---------------- Passcode gate ---------------- */
+
+function wireGate() {
+
+  const form = document.getElementById("gate-form");
+  const input = document.getElementById("gate-input");
+  const error = document.getElementById("gate-error");
+
+  form.addEventListener("submit", async (e) => {
+
+    e.preventDefault();
+
+    const passcode = input.value.trim();
+
+    if (!passcode) return;
+
+    error.classList.add("hidden");
+
+    try {
+
+      const response = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passcode }),
+      });
+
+      if (response.ok) {
+
+        input.value = "";
+
+        document.getElementById("modal-gate").classList.add("hidden");
+
+        resumeBus();
+
+        return;
+      }
+
+      error.textContent = response.status === 429
+        ? "too many attempts — wait a minute"
+        : "wrong passcode";
+
+      error.classList.remove("hidden");
+
+      error.style.animation = "none";
+      void error.offsetWidth;          // restart the shake
+      error.style.animation = "";
+
+    } catch {
+
+      error.textContent = "cannot reach Alice";
+      error.classList.remove("hidden");
+    }
+  });
 }
 
 /* ---------------- Status chips ---------------- */
@@ -316,6 +384,7 @@ async function main() {
 
   wireBus();
   wireStatus();
+  wireGate();
 
   start();
 

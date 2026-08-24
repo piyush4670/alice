@@ -76,3 +76,15 @@ export function stop() {
   wanted = false;
   if (socket) socket.close();
 }
+
+/* Used by the passcode gate: stop retrying until the user unlocks. */
+export function pause() {
+  wanted = false;
+  if (socket) socket.close();
+}
+
+export function resume() {
+  wanted = true;
+  backoff = 800;
+  connect();
+}

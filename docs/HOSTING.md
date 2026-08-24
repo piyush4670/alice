@@ -98,6 +98,60 @@ artifacts) resets. Fine for demoing; for an assistant that truly
 remembers you, use Oracle VM / home hosting, or ask for a hosted-database
 storage backend.
 
-**Public URL = public Alice.** Anyone with the link can talk to her and
-use her tools. Before sharing, add an access passcode (`ALICE_PASSCODE`)
-— a small gate in the WebSocket handshake — or keep the URL private.
+**Public URL = public Alice — but she can lock the door.** Set
+`ALICE_PASSCODE` in the environment and every API route and the
+WebSocket refuse strangers until they unlock with the passcode (the UI
+shows a lock screen; sessions last 30 days; 5 wrong tries per minute
+per IP triggers a cooldown). Generate one with:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(9))"
+```
+
+---
+
+# No card? Start here.
+
+Oracle's verification needs a card. These don't:
+
+## Hugging Face Spaces — free forever, email account only
+
+1. Merge the Alice PR into `main` on GitHub.
+2. huggingface.co → sign up (email or GitHub — no card).
+3. **New Space** → name `alice` → SDK: **Docker** → Public or Private.
+4. Push the repo to the Space (website file uploader or git):
+
+```bash
+git clone https://huggingface.co/spaces/<your-name>/alice hf-alice
+cd hf-alice
+git -C /path/to/alice archive --format=tar HEAD | tar -x   # or copy the files
+git add -A && git commit -m "deploy alice" && git push
+```
+
+5. Space → **Settings → Variables and secrets** → New secret:
+   - `API_KEY` = your free Groq key
+   - `ALICE_PASSCODE` = your generated passcode (recommended — the URL is public)
+6. Build takes ~2 minutes → `https://<your-name>-alice.hf.space`
+
+Sleeps after ~48h idle (first visit wakes her in ~30s); storage resets
+on restart, so she forgets between restarts. Keep her awake with a free
+cron-job.org ping to `/api/health` every 6 hours.
+
+## Render free — no card at signup
+
+Same steps as Option 1 in the table above; the free plan asks for no
+payment method. Add `ALICE_PASSCODE` as an environment variable.
+
+## Your own computer — free, persistent, private
+
+```bash
+cd alice && python -m server
+```
+
+- On the same machine: `http://localhost:8000` — everything works,
+  including the microphone (localhost counts as a secure origin).
+- On your phone (same Wi-Fi): `http://<your-pc-ip>:8000` — all works
+  except the mic button.
+- For a real URL: `cloudflared tunnel --url http://localhost:8000`
+  (free account, email only) — HTTPS + mic everywhere, and her memory
+  never resets because it's your disk.

@@ -187,6 +187,20 @@
     </aside>
   </main>
 
+  <!-- PASSCODE GATE -->
+  <div class="modal hidden" id="modal-gate">
+    <div class="modal-card">
+      <div class="modal-glyph"><svg viewBox="0 0 100 100"><polygon points="50,6 90,28 90,72 50,94 10,72 10,28"/></svg></div>
+      <h2>Alice is locked</h2>
+      <p class="dim">Enter the passcode to open mission control.</p>
+      <form id="gate-form">
+        <input id="gate-input" type="password" placeholder="passcode" autocomplete="current-password" maxlength="120">
+        <button type="submit" class="mini-btn">unlock</button>
+      </form>
+      <div class="gate-error hidden" id="gate-error">wrong passcode</div>
+    </div>
+  </div>
+
   <!-- FIRST-RUN IDENTITY CARD -->
   <div class="modal hidden" id="modal-name">
     <div class="modal-card">

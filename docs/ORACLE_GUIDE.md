@@ -4,6 +4,10 @@ The forever option: a real VM that never sleeps and keeps Alice's
 memory on disk. Budget ~45 minutes. No charges — the card is only used
 for identity verification.
 
+> No card available? Skip to the "No card? Start here." section of
+> HOSTING.md — Hugging Face Spaces, Render and your own machine all
+> host Alice without one.
+
 ---
 
 ## 0. What you get

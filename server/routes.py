@@ -1,8 +1,9 @@
-"""REST routes: system, tasks, memory, board and artifacts."""
+"""REST routes: auth, system, tasks, memory, board and artifacts."""
 
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
+
 
 from core.config import WORKSPACE_DIR
 from memory import manager as memory
@@ -12,10 +13,14 @@ from plugins.todo import load_tasks as load_todos
 from tools.manage import remember as remember_tool
 from tools.workspace import sanitise
 
-from server import telemetry
+from server import auth, telemetry
 from server.runtime import orchestrator
 
 router = APIRouter(prefix="/api")
+
+
+class PasscodeBody(BaseModel):
+    passcode: str = ""
 
 
 class RememberBody(BaseModel):
@@ -30,6 +35,45 @@ class MissionBody(BaseModel):
 
 class AnswerBody(BaseModel):
     text: str
+
+
+# ===========
+# Auth
+# ===========
+
+@router.get("/auth/check")
+def auth_check(request: Request):
+    return {
+        "required": auth.enabled(),
+        "authorised": auth.authorised(request),
+    }
+
+
+@router.post("/auth")
+def auth_passcode(request: Request, body: PasscodeBody):
+
+    if not auth.enabled():
+        return {"ok": True, "required": False}
+
+    ip = request.client.host if request.client else "unknown"
+
+    if not auth.allowed_to_attempt(ip):
+        raise HTTPException(429, "Too many attempts. Wait a minute.")
+
+    if not auth.check_passcode(body.passcode):
+        raise HTTPException(401, "Wrong passcode.")
+
+    response = JSONResponse({"ok": True, "required": True})
+
+    response.set_cookie(
+        auth.COOKIE_NAME,
+        auth.token(),
+        httponly=True,
+        samesite="lax",
+        max_age=auth.COOKIE_MAX_AGE,
+    )
+
+    return response
 
 
 # ===========

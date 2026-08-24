@@ -41,6 +41,14 @@ BASE_URL = os.getenv(
 REQUEST_TIMEOUT = 30
 
 # ===========
+# Access
+# ===========
+
+# Set ALICE_PASSCODE to lock Alice behind a passcode gate.
+# Leave empty for open access (local development).
+PASSCODE = os.getenv("ALICE_PASSCODE", "").strip()
+
+# ===========
 # Server
 # ===========
 

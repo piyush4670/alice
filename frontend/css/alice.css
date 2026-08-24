@@ -801,6 +801,18 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 
 .modal-card input { flex: 1; min-width: 180px; }
 
+.gate-error {
+  margin-top: 12px; font-family: var(--mono); font-size: 11px;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--bad); animation: gateShake 0.35s ease;
+}
+
+@keyframes gateShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
 .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .modal-head h2 { margin: 0; font-size: 15px; }
 
