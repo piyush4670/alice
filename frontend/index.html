@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALICE — Mission Control</title>
+<meta name="description" content="ALICE — Artificial Learning Intelligent Cognitive Engine">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><polygon points='50,6 90,28 90,72 50,94 10,72 10,28' fill='none' stroke='%234fd9ff' stroke-width='7'/><circle cx='50' cy='50' r='14' fill='%234fd9ff'/></svg>">
+<link rel="stylesheet" href="css/alice.css">
+</head>
+<body>
+
+<!-- ================= ICONS ================= -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v4m-4 0h8" fill="none"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M3 11.5 21 3l-8.5 18-2.4-7.1L3 11.5Z"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9" fill="none"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0" fill="none"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m4.5 12.5 5 5 10-11" fill="none"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19" fill="none"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4 2.5 20h19L12 4Z" fill="none"/><path d="M12 10v5m0 2.8v.2" fill="none"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 2.5h8L19 8v13.5H6V2.5Z" fill="none"/><path d="M13.5 3v5H19" fill="none"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9.5 3.5a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3c1.4 0 2.5-.7 2.5-2V5.5c0-1.3-1.1-2-2.5-2Z" fill="none"/><path d="M14.5 3.5a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3c-1.4 0-2.5-.7-2.5-2V5.5c0-1.3 1.1-2 2.5-2Z" fill="none"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="none"/><rect x="10" y="10" width="4" height="4" fill="none"/><path d="M9 2.5V6m6-3.5V6M9 18v3.5m6-3.5v3.5M2.5 9H6m-3.5 6H6m12-6h3.5m-3.5 6h3.5" fill="none"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h2l2-6 3 12 3-9 3 6 2-3h3" fill="none"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.5S3.5 15 3.5 9a4.7 4.7 0 0 1 8.5-2.8A4.7 4.7 0 0 1 20.5 9c0 6-8.5 11.5-8.5 11.5Z" fill="none"/></symbol>
+  <symbol id="i-orbit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none"/><ellipse cx="12" cy="12" rx="10" ry="4.4" fill="none"/><circle cx="20.5" cy="9.5" r="1.6" fill="none"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7m-8 0 1 14h13l1-14" fill="none"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6" fill="none"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" fill="none"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 16.8 6.4 20l1.3-6.2L3 9.5l6.3-.7L12 3Z" fill="none"/></symbol>
+</svg>
+
+<!-- ================= BOOT OVERLAY ================= -->
+<div id="boot" aria-hidden="true">
+  <div class="boot-inner">
+    <div class="boot-glyph">
+      <svg viewBox="0 0 100 100" class="boot-hex">
+        <polygon points="50,6 90,28 90,72 50,94 10,72 10,28"/>
+        <polygon points="50,20 78,36 78,64 50,80 22,64 22,36"/>
+      </svg>
+      <div class="boot-core"></div>
+    </div>
+    <div class="boot-title">A L I C E</div>
+    <div class="boot-sub">Artificial Learning Intelligent Cognitive Engine</div>
+    <pre id="boot-log" class="boot-log"></pre>
+    <div class="boot-skip">click anywhere to skip</div>
+  </div>
+</div>
+
+<!-- ================= AMBIENT BACKDROP ================= -->
+<div class="backdrop" aria-hidden="true">
+  <div class="grid-floor"></div>
+  <div class="aurora a1"></div>
+  <div class="aurora a2"></div>
+  <div class="stars" id="stars"></div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app" class="hidden">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-hex" viewBox="0 0 100 100">
+        <polygon points="50,6 90,28 90,72 50,94 10,72 10,28"/>
+        <polygon points="50,20 78,36 78,64 50,80 22,64 22,36"/>
+      </svg>
+      <div class="brand-name">ALICE</div>
+      <div class="brand-tag">mission&nbsp;control</div>
+    </div>
+
+    <div class="statusbar">
+      <div class="chip" id="chip-state">
+        <span class="dot" id="state-dot"></span><span id="state-label">online</span>
+      </div>
+      <div class="chip" id="chip-brain"><svg class="ic"><use href="#i-brain"/></svg><span id="brain-label">core</span></div>
+      <div class="chip" id="chip-link"><span class="dot" id="link-dot"></span><span id="link-label">link</span></div>
+    </div>
+
+    <div class="topbar-right">
+      <button class="icon-btn" id="btn-voice" title="Alice speaks" aria-pressed="false"><svg class="ic"><use href="#i-wave"/></svg></button>
+      <button class="icon-btn" id="btn-sound" title="Interface sounds" aria-pressed="true"><svg class="ic"><use href="#i-star"/></svg></button>
+      <div class="clock"><div id="clock-time">--:--</div><div id="clock-date">—</div></div>
+    </div>
+  </header>
+
+  <main class="deck">
+
+    <!-- LEFT RAIL -->
+    <aside class="rail rail-left">
+
+      <section class="panel core-panel">
+        <div class="orb-wrap">
+          <canvas id="orb" width="300" height="300"></canvas>
+          <div class="orb-state" id="orb-state">idle</div>
+        </div>
+        <div class="core-meta">
+          <div class="wave" id="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-memory">
+        <h3 class="panel-title"><svg class="ic"><use href="#i-heart"/></svg> memory</h3>
+        <div class="memory-list" id="memory-list"><div class="empty">nothing stored yet</div></div>
+        <form class="memory-add" id="memory-add">
+          <input id="memory-input" type="text" placeholder="key is value" autocomplete="off" maxlength="120">
+          <button type="submit" class="mini-btn">store</button>
+        </form>
+      </section>
+
+      <section class="panel" id="panel-system">
+        <h3 class="panel-title"><svg class="ic"><use href="#i-chip"/></svg> system</h3>
+        <div class="telemetry" id="telemetry">
+          <div class="t-row"><span>core load</span><div class="t-bar"><i id="t-cpu"></i></div><b id="t-cpu-v">—</b></div>
+          <div class="t-row"><span>memory</span><div class="t-bar"><i id="t-mem"></i></div><b id="t-mem-v">—</b></div>
+          <div class="t-row"><span>disk</span><div class="t-bar"><i id="t-disk"></i></div><b id="t-disk-v">—</b></div>
+          <div class="t-row"><span>uptime</span><b id="t-uptime">—</b></div>
+          <div class="t-row"><span>host</span><b id="t-host">—</b></div>
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- CENTER: CONVERSATION -->
+    <section class="convo" id="convo-col">
+      <div class="stream" id="stream"></div>
+
+      <div class="quick" id="quick">
+        <button class="q-chip" data-q="What can you do?">what can you do?</button>
+        <button class="q-chip" data-q="mission: research the Voyager space probes and write me a short file summary">mission: research Voyager</button>
+        <button class="q-chip" data-q="remind me to stretch at 6pm">remind me to stretch</button>
+        <button class="q-chip" data-q="calculate (228 * 17) / 3">calculate</button>
+      </div>
+
+      <form class="composer" id="composer">
+        <div class="mode-picker" id="mode-picker">
+          <button type="button" data-mode="auto" class="on">auto</button>
+          <button type="button" data-mode="chat">chat</button>
+          <button type="button" data-mode="mission">mission</button>
+        </div>
+        <textarea id="input" rows="1" placeholder="Talk to Alice…  (mission: for a full task)"></textarea>
+        <button type="button" class="icon-btn big" id="btn-mic" title="Speak"><svg class="ic"><use href="#i-mic"/></svg></button>
+        <button type="submit" class="send-btn" id="btn-send" title="Send"><svg class="ic"><use href="#i-send"/></svg></button>
+      </form>
+      <div class="composer-hint" id="composer-hint">enter to send · shift+enter for a new line</div>
+    </section>
+
+    <!-- RIGHT RAIL: MISSION CONTROL -->
+    <aside class="rail rail-right">
+
+      <section class="panel mission-panel" id="panel-mission">
+        <h3 class="panel-title"><svg class="ic"><use href="#i-orbit"/></svg> mission control</h3>
+
+        <div id="mission-idle" class="mission-idle">
+          <div class="idle-glyph"><svg viewBox="0 0 100 100"><polygon points="50,6 90,28 90,72 50,94 10,72 10,28"/><circle cx="50" cy="50" r="12"/></svg></div>
+          <p>No active mission.</p>
+          <p class="dim">Start one with <b>mission:</b> or any big request — Alice will plan, work and report until it's done.</p>
+        </div>
+
+        <div id="mission-live" class="hidden">
+          <div class="mission-goal">
+            <div class="mission-state" id="mission-state"><span class="ms-dot"></span><span id="mission-state-text">planning</span></div>
+            <div class="goal-text" id="mission-goal">—</div>
+            <div class="progress"><i id="mission-progress"></i></div>
+            <div class="progress-meta"><span id="mission-step-count">0 / 0 steps</span><span id="mission-elapsed"></span></div>
+            <button class="mini-btn danger" id="btn-cancel">abort mission</button>
+          </div>
+
+          <div class="steps" id="mission-steps"></div>
+
+          <div class="question hidden" id="mission-question">
+            <div class="q-title"><svg class="ic"><use href="#i-user"/></svg> Alice needs you</div>
+            <div class="q-text" id="question-text"></div>
+            <form id="question-form">
+              <input id="question-input" type="text" placeholder="your answer…" autocomplete="off">
+              <button type="submit" class="mini-btn">answer</button>
+            </form>
+          </div>
+
+          <div class="artifacts" id="mission-artifacts"></div>
+        </div>
+      </section>
+
+      <section class="panel log-panel">
+        <h3 class="panel-title"><svg class="ic"><use href="#i-chip"/></svg> event feed</h3>
+        <div class="log" id="log"><div class="empty">standing by…</div></div>
+      </section>
+
+    </aside>
+  </main>
+
+  <!-- FIRST-RUN IDENTITY CARD -->
+  <div class="modal hidden" id="modal-name">
+    <div class="modal-card">
+      <div class="modal-glyph"><svg viewBox="0 0 100 100"><polygon points="50,6 90,28 90,72 50,94 10,72 10,28"/></svg></div>
+      <h2>Hello. I'm Alice.</h2>
+      <p class="dim">Artificial Learning Intelligent Cognitive Engine.<br>I remember, I plan, I work — and I stay with a task until it's finished.</p>
+      <form id="name-form">
+        <input id="name-input" type="text" placeholder="What should I call you?" maxlength="40" autocomplete="off">
+        <button type="submit" class="mini-btn">begin</button>
+        <button type="button" class="mini-btn ghost" id="name-skip">just call me Boss</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ARTIFACT VIEWER -->
+  <div class="modal hidden" id="modal-artifact">
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <h2 id="artifact-title">artifact</h2>
+        <button class="icon-btn" id="artifact-close"><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+      <pre class="artifact-body" id="artifact-body"></pre>
+    </div>
+  </div>
+
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

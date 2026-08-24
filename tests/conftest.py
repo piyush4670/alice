@@ -17,17 +17,20 @@ def isolated_data(tmp_path, monkeypatch):
     import plugins.notes as notes
     import plugins.reminder as reminder
     import plugins.todo as todo
+    import tools.workspace as workspace
 
     monkeypatch.setattr(config, "DATA_DIR", tmp_path)
     monkeypatch.setattr(config, "MEMORY_FILE", tmp_path / "profile.json")
     monkeypatch.setattr(config, "REMINDER_FILE", tmp_path / "reminders.json")
     monkeypatch.setattr(config, "NOTES_FILE", tmp_path / "notes.json")
     monkeypatch.setattr(config, "TODO_FILE", tmp_path / "todos.json")
+    monkeypatch.setattr(config, "WORKSPACE_DIR", tmp_path / "workspace")
 
     monkeypatch.setattr(storage, "MEMORY_FILE", tmp_path / "profile.json")
     monkeypatch.setattr(reminder, "REMINDER_FILE", tmp_path / "reminders.json")
     monkeypatch.setattr(notes, "NOTES_FILE", tmp_path / "notes.json")
     monkeypatch.setattr(todo, "TODO_FILE", tmp_path / "todos.json")
+    monkeypatch.setattr(workspace, "WORKSPACE_DIR", tmp_path / "workspace")
 
     yield tmp_path
 
