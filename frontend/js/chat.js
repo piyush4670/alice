@@ -214,15 +214,11 @@ export function initComposer() {
   });
 }
 
-function submit() {
+export function submitText(text) {
 
-  const input = document.getElementById("input");
-  const text = input.value.trim();
+  text = (text || "").trim();
 
   if (!text) return;
-
-  input.value = "";
-  input.style.height = "auto";
 
   addUserMessage(text);
 
@@ -237,6 +233,19 @@ function submit() {
   }
 
   send({ type: "user.message", text, mode: state.mode });
+}
+
+function submit() {
+
+  const input = document.getElementById("input");
+  const text = input.value.trim();
+
+  if (!text) return;
+
+  input.value = "";
+  input.style.height = "auto";
+
+  submitText(text);
 }
 
 export { scrollDown };

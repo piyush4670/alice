@@ -54,6 +54,78 @@ SEARCH_HINTS = (
     "google ",
 )
 
+# Phrases that mean "open a website in the web deck".
+OPEN_STARTERS = (
+    "open ",
+    "go to ",
+    "take me to ",
+    "browse ",
+    "load ",
+    "launch ",
+    "show me ",
+)
+
+OPEN_TRAILERS = (
+    " in the browser",
+    " in the web deck",
+    " in a new tab",
+    " on the web",
+    " on the internet",
+    " in my browser",
+    " for me",
+    " please",
+)
+
+KNOWN_SITES = (
+    "youtube",
+    "youtube.com",
+    "google",
+    "google.com",
+    "wikipedia",
+    "wikipedia.org",
+    "duckduckgo",
+    "duckduckgo.com",
+    "bing",
+    "bing.com",
+    "github",
+    "github.com",
+    "gmail",
+    "maps",
+    "maps.google.com",
+    "news",
+    "news.google.com",
+    "arxiv",
+    "arxiv.org",
+    "reddit",
+    "reddit.com",
+    "twitter",
+    "x.com",
+    "instagram",
+)
+
+# "open the web deck" / "open the browser" -> a sensible default homepage.
+BROWSER_DEFAULTS = ("web deck", "webdeck", "the web", "browser", "the browser", "a browser")
+
+
+def _looks_like_site(target: str) -> bool:
+    """True when a fragment names a website/domain rather than a topic."""
+
+    lowered = (target or "").lower()
+    trimmed = lowered.removeprefix("the ").strip()
+
+    if "." in lowered:
+        return True
+
+    for site in KNOWN_SITES:
+        if site in lowered:
+            return True
+
+    for phrase in BROWSER_DEFAULTS:
+        if lowered == phrase or trimmed == phrase:
+            return True
+
+    return False
+
 
 def normalise(text: str) -> str:
 
@@ -168,6 +240,33 @@ def classify(fragment: str):
     if re.match(r"^[\d\s+\-*/%().^]+$", lowered) and any(op in lowered for op in "+-*/%^"):
         return ("calculator", lowered)
 
+    # Browser: "open arxiv.org", "go to youtube", "take me to wikipedia".
+    if lowered.startswith(OPEN_STARTERS):
+
+        target = text
+
+        for starter in OPEN_STARTERS:
+            if lowered.startswith(starter):
+                target = text[len(starter):]
+                break
+
+        for trailer in OPEN_TRAILERS:
+            if target.lower().endswith(trailer):
+                target = target[: -len(trailer)]
+                break
+
+        target = target.strip(" .,!?:")
+
+        if target and _looks_like_site(target):
+            lowered_target = target.lower().removeprefix("the ").strip()
+
+            for phrase in BROWSER_DEFAULTS:
+                if lowered_target == phrase:
+                    target = "duckduckgo"
+                    break
+
+            return ("browser", target)
+
     # Research.
     for starter in QUESTION_STARTERS:
 
@@ -280,6 +379,7 @@ class LocalBrain(Brain):
                 "wikipedia": f"Research: {payload[:60]}",
                 "search": "Search the web",
                 "save_results": "Write the results file",
+                "browser": f"Open {payload[:40]}",
                 "answer": "Handle the request",
             }.get(hint, "Handle the request")
 
@@ -364,6 +464,10 @@ class LocalBrain(Brain):
         if hint == "search":
             payload = classify(detail)
             return Action(ACTION_TOOL, tool="web_search", args={"query": payload[1] or detail})
+
+        if hint == "browser":
+            payload = classify(detail)[1] or detail
+            return Action(ACTION_TOOL, tool="open_website", args={"target": payload})
 
         # Open-ended fragment: try a factual lookup, else answer honestly.
         guess = classify(detail)
@@ -454,4 +558,57 @@ class LocalBrain(Brain):
                     yield result.output
                     return
 
+        # Single-action helper commands (voice-friendly): open a site, do the
+        # maths, set a reminder — run the tool instead of apologising for the
+        # missing reasoning core.
+        hint, payload = classify(text)
+        self.last_side_effects = []
+
+        if hint in ("browser", "calculator", "wikipedia", "search", "time", "date"):
+
+            tool, args = self._single_tool(hint, payload, text)
+
+            result = execute(tool, args)
+
+            data = result.data if isinstance(result.data, dict) else {}
+
+            # Surface live side-effects the same way missions do.
+            if isinstance(data.get("web"), dict) and data["web"].get("url"):
+                self.last_side_effects.append(
+                    {"type": "web.open", "url": data["web"]["url"], "title": data["web"].get("title", "")}
+                )
+
+            if isinstance(data.get("notify"), dict):
+                self.last_side_effects.append(
+                    {"type": "system.notify", "title": data["notify"].get("title", "Alice"), "body": data["notify"].get("body", "")}
+                )
+
+            yield result.output if result.ok else result.output
+            return
+
         yield AI_NO_KEY.format(title=boss())
+
+    def _single_tool(self, hint: str, payload: str, detail: str):
+        """Map a classified intent to (tool, args) for a hands-on command."""
+
+        if hint == "browser":
+            return ("open_website", {"target": payload or detail})
+
+        if hint == "calculator":
+            expression = (payload or detail).strip()
+            return ("calculator", {"expression": expression})
+
+        if hint == "wikipedia":
+            topic = (payload or detail).strip(" ?.")
+            return ("wikipedia", {"topic": topic})
+
+        if hint == "search":
+            return ("web_search", {"query": payload or detail})
+
+        if hint == "time":
+            return ("current_time", {})
+
+        if hint == "date":
+            return ("current_date", {})
+
+        return ("answer", {})

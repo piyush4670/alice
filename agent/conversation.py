@@ -71,6 +71,11 @@ def _reply_with_brain(message: str, emit, brain) -> None:
 
         chunks = [text]
 
+    # Forward side-effect events (web.open / system.notify) that a tool
+    # produced so the UI can open the web deck or raise a notification.
+    for effect in getattr(brain, "last_side_effects", None) or []:
+        emit(effect)
+
     full = "".join(chunks)
 
     emit({"type": "chat.done", "mid": mid, "message": full})

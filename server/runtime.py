@@ -8,8 +8,10 @@ import time
 
 from agent.orchestrator import Orchestrator
 from server.bus import EventBus
+from server.scheduler import ReminderScheduler
 
 STARTED_AT = time.time()
 
 bus = EventBus()
 orchestrator = Orchestrator(bus.emit)
+scheduler = ReminderScheduler(bus.emit)

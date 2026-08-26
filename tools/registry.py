@@ -9,6 +9,7 @@ import json
 
 from tools.results import ToolResult
 from tools.builtin import calculator, current_date, current_time
+from tools.integrations import notify, open_website
 from tools.knowledge import web_search, wikipedia
 from tools.manage import (
     add_note,
@@ -217,6 +218,32 @@ REGISTRY = [
         "name",
         "The file name",
         read_file,
+    ),
+    _text(
+        "open_website",
+        "Open a website in Alice's embedded browser view. Give a domain (example.com), a named site (youtube, wikipedia, google), or a search query.",
+        "target",
+        "A domain, named site, or the thing you want to look up",
+        open_website,
+    ),
+    tool(
+        "notify",
+        "Raise a browser notification for the user, e.g. when a background task finishes.",
+        {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Short notification title, e.g. 'Research complete'",
+                },
+                "body": {
+                    "type": "string",
+                    "description": "One line of detail for the notification",
+                },
+            },
+            "required": ["title"],
+        },
+        notify,
     ),
 ]
 

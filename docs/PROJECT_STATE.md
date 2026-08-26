@@ -396,7 +396,8 @@ Directory:
 tests/
 ```
 
-168 tests covering routing, extraction, persistence, prompt construction
+232 tests covering routing, extraction, persistence, prompt construction,
+reminder scheduling, web-proxy security and AI side-effects
 and arithmetic safety. They run offline in under a second and never touch
 real user data.
 
@@ -430,7 +431,7 @@ Code Quality
 
 Test Coverage
 
-🟢 168 tests
+🟢 232 tests
 
 Security
 
@@ -462,3 +463,25 @@ Shipped:
 - CLI (`main.py`) unchanged and fully compatible.
 
 See docs/WEB_ARCHITECTURE.md for the full design.
+
+# v3 — Hands-free Assistant (2026)
+
+Shipped:
+
+- **Passcode gate + cinematic boot** — ALICE opens locked; the dashboard
+  only mounts after an access code and a boot sequence.
+- **Wake word "Hey Alice"** — a hands-free, continuous-listening engine
+  (`frontend/js/voice.js`) that interrupts ALICE mid-sentence, stops her
+  speech instantly, and takes the next instruction live.
+- **Live voice visualiser** — a real-time audio wave (`frontend/js/audio.js`)
+  reacting to the microphone while she listens and to her speech envelope
+  while she speaks.
+- **Embedded web deck** (`frontend/js/webdock.js` + `server/webproxy.py`) —
+  ALICE opens sites in-browser; the server re-serves framed pages safely.
+- **Browser notifications** (`frontend/js/notify.js`) — permission-aware
+  pings for reminders and mission completion.
+- **Reminder scheduler** (`server/scheduler.py` + `utils/timeparse.py`) —
+  resolves human reminder times and rings them in real time.
+- **New tools** — `open_website` and `notify`, wired through the mission
+  engine to emit `web.open` / `system.notify` live UI events.
+- **Installable PWA** — web manifest + service worker + generated icons.
