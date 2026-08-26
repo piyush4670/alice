@@ -86,6 +86,9 @@ and says so in the event feed. Alice degrades; she never goes dark.
 | `task.delta` / `task.message_done` | Alice narrating the mission |
 | `task.question` | the mission needs the user |
 | `task.artifact` | a file landed in the workspace |
+| `web.open` | ALICE opened a site — the embedded web deck should slide up |
+| `system.notify` | ALICE raised a browser notification |
+| `reminder.fire` | a reminder came due (ring it, post a notification) |
 | `memory.updated` | the memory lattice changed |
 | `system.telemetry` | heartbeat (load, memory, disk) |
 
@@ -113,14 +116,34 @@ backend's single-responsibility rule:
 state.js    one observable store
 bus.js      socket + reconnect
 core.js     the Alice Core orb (canvas)
+audio.js    live voice/speech visualiser (canvas)
 chat.js     stream + composer
 mission.js  mission control panel + event feed
 panels.js   memory / telemetry / artifacts
-voice.js    speech synthesis + recognition
+voice.js    speech synthesis + dictation + "Hey Alice" wake word engine
+webdock.js  embedded browser, driven by the web deck
+notify.js   permission-aware browser notifications
+startup.js  passcode gate + cinematic boot sequence
 sound.js    quiet WebAudio chimes
 md.js       minimal safe markdown
+level.js    shared live mic-level bucket
 main.js     boot sequence + wiring
 ```
+
+# Installable app (PWA)
+
+- `manifest.webmanifest` — name/theme/icons/start_url/shortcuts.
+- `service-worker.js` — caches the static shell (cache-first for assets,
+  network-first for navigations), never caches `/api`, `/ws` or `/web`
+  (live data and the proxy must always hit the server).
+
+# Embedded web deck
+
+Sites can't be framed (X-Frame-Options / CSP). `server/webproxy.py`
+re-serves a page from ALICE's own origin, strictly https/http, blocking
+private/loopback hosts (SSRF), stripping frame-busting headers and
+re-anchoring relative links via a `<base>` tag. If the proxy can't load a
+site the frontend shows a fallback with an "open in new tab" escape hatch.
 
 Design language: deep ice. Calm, crystalline, precise — every cinematic-
 assistant capability, in Alice's own voice.

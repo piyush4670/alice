@@ -14,10 +14,17 @@ export const state = {
   activeTask: null,     // id of a running mission (routing)
   focusTask: null,      // id of the mission shown in the panel (may be closed)
   mode: "auto",         // composer mode
-  speak: false,
+  speak: false,         // ALICE reads replies aloud
+  speaking: false,      // a TTS utterance is currently playing
   sound: true,
   booted: false,
   greeted: false,
+  handsFree: false,     // wake-word (“Hey Alice”) listening active
+  wake: false,          // holding attention after the wake word
+  listening: false,     // actively capturing a spoken command
+  auth: null,           // "pending" | "locked" | "open" | null
+  webView: { open: false, url: "", title: "" },
+  permission: { mic: false, notifications: false },
 };
 
 export function set(patch) {

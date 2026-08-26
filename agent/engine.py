@@ -110,6 +110,41 @@ class MissionEngine:
         if after != before:
             self.emit({"type": "memory.updated", "items": after})
 
+    def _side_effects(self, task: Task, data):
+        """Turn tool side-effect data into live UI events, not just text."""
+
+        data = data if isinstance(data, dict) else {}
+
+        artifact = data.get("artifact")
+
+        if artifact:
+            task.artifacts.append(Artifact(artifact["name"], artifact["path"]))
+            self.emit(
+                {
+                    "type": "task.artifact",
+                    "task_id": task.id,
+                    "artifact": artifact,
+                }
+            )
+
+        if isinstance(data.get("web"), dict) and data["web"].get("url"):
+            self.emit(
+                {
+                    "type": "web.open",
+                    "url": data["web"]["url"],
+                    "title": data["web"].get("title", ""),
+                }
+            )
+
+        if isinstance(data.get("notify"), dict):
+            self.emit(
+                {
+                    "type": "system.notify",
+                    "title": data["notify"].get("title", "Alice"),
+                    "body": data["notify"].get("body", ""),
+                }
+            )
+
     # -----------------
     # The loop
     # -----------------
@@ -308,17 +343,7 @@ class MissionEngine:
                         shorten(result.observe(), 300),
                     )
 
-                    artifact = (result.data or {}).get("artifact") if isinstance(result.data, dict) else None
-
-                    if artifact:
-                        task.artifacts.append(Artifact(artifact["name"], artifact["path"]))
-                        self.emit(
-                            {
-                                "type": "task.artifact",
-                                "task_id": task.id,
-                                "artifact": artifact,
-                            }
-                        )
+                    self._side_effects(task, result.data)
 
                     self.memory_sync(memory_before)
                     memory_before = memory.all_memory()

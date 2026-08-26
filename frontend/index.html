@@ -2,10 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>ALICE — Mission Control</title>
 <meta name="description" content="ALICE — Artificial Learning Intelligent Cognitive Engine">
+<meta name="theme-color" content="#040c1d">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ALICE">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><polygon points='50,6 90,28 90,72 50,94 10,72 10,28' fill='none' stroke='%234fd9ff' stroke-width='7'/><circle cx='50' cy='50' r='14' fill='%234fd9ff'/></svg>">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="stylesheet" href="css/alice.css">
 </head>
 <body>
@@ -27,7 +33,35 @@
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7m-8 0 1 14h13l1-14" fill="none"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6" fill="none"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" fill="none"/></symbol>
   <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 16.8 6.4 20l1.3-6.2L3 9.5l6.3-.7L12 3Z" fill="none"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none"/><path d="M3 12h18M12 3c2.7 2.7 2.7 15.3 0 18M12 3c-2.7 2.7-2.7 15.3 0 18" fill="none"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 1 5 5v3l1.5 3.5H5.5L7 11V8a5 5 0 0 1 5-5Z" fill="none"/><path d="M10 18.5a2 2 0 0 0 4 0" fill="none"/></symbol>
+  <symbol id="i-ear" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 3-1.5 4.5-2 6.5C15.5 19 13 21 11 21s-2-1.5-2-3 1-2.5 2-2.5 1.8.6 2-1.2" fill="none"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7" fill="none"/></symbol>
+  <symbol id="i-forward" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" fill="none"/></symbol>
+  <symbol id="i-reload" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4" fill="none"/></symbol>
 </svg>
+
+<!-- ================= AUTH GATE ================= -->
+<div id="auth" class="gate hidden" aria-hidden="true">
+  <div class="gate-backdrop"></div>
+  <div class="gate-card">
+    <div class="gate-glyph">
+      <svg viewBox="0 0 100 100" class="boot-hex">
+        <polygon points="50,6 90,28 90,72 50,94 10,72 10,28"/>
+        <polygon points="50,20 78,36 78,64 50,80 22,64 22,36"/>
+      </svg>
+      <div class="gate-core"></div>
+    </div>
+    <div class="boot-title">A L I C E</div>
+    <div class="boot-sub">restricted · authentication required</div>
+    <form id="auth-form" autocomplete="off">
+      <input id="auth-pin" type="password" inputmode="numeric" placeholder="access code" autocomplete="current-password" maxlength="120">
+      <button type="submit" class="mini-btn">unlock</button>
+    </form>
+    <div class="gate-error hidden" id="auth-error">wrong access code</div>
+    <div class="gate-hint">Enter the access code set by your administrator to open mission control.</div>
+  </div>
+</div>
 
 <!-- ================= BOOT OVERLAY ================= -->
 <div id="boot" aria-hidden="true">
@@ -76,6 +110,9 @@
     </div>
 
     <div class="topbar-right">
+      <button class="icon-btn" id="btn-wake" title="Hands-free — say “Hey Alice”" aria-pressed="false"><svg class="ic"><use href="#i-ear"/></svg></button>
+      <button class="icon-btn" id="btn-web" title="Open the web deck"><svg class="ic"><use href="#i-globe"/></svg></button>
+      <button class="icon-btn" id="btn-notify" title="Enable notifications" aria-pressed="false"><svg class="ic"><use href="#i-bell"/></svg></button>
       <button class="icon-btn" id="btn-voice" title="Alice speaks" aria-pressed="false"><svg class="ic"><use href="#i-wave"/></svg></button>
       <button class="icon-btn" id="btn-sound" title="Interface sounds" aria-pressed="true"><svg class="ic"><use href="#i-star"/></svg></button>
       <div class="clock"><div id="clock-time">--:--</div><div id="clock-date">—</div></div>
@@ -93,7 +130,9 @@
           <div class="orb-state" id="orb-state">idle</div>
         </div>
         <div class="core-meta">
+          <canvas id="voiceWave" class="voice-wave"></canvas>
           <div class="wave" id="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="wake-hint hidden" id="wake-hint"><span class="wake-dot"></span><span id="wake-hint-text">listening…</span></div>
         </div>
       </section>
 
@@ -128,6 +167,7 @@
         <button class="q-chip" data-q="mission: research the Voyager space probes and write me a short file summary">mission: research Voyager</button>
         <button class="q-chip" data-q="remind me to stretch at 6pm">remind me to stretch</button>
         <button class="q-chip" data-q="calculate (228 * 17) / 3">calculate</button>
+        <button class="q-chip" data-q="open the web deck and show me wikipedia">open the web deck</button>
       </div>
 
       <form class="composer" id="composer">
@@ -187,20 +227,6 @@
     </aside>
   </main>
 
-  <!-- PASSCODE GATE -->
-  <div class="modal hidden" id="modal-gate">
-    <div class="modal-card">
-      <div class="modal-glyph"><svg viewBox="0 0 100 100"><polygon points="50,6 90,28 90,72 50,94 10,72 10,28"/></svg></div>
-      <h2>Alice is locked</h2>
-      <p class="dim">Enter the passcode to open mission control.</p>
-      <form id="gate-form">
-        <input id="gate-input" type="password" placeholder="passcode" autocomplete="current-password" maxlength="120">
-        <button type="submit" class="mini-btn">unlock</button>
-      </form>
-      <div class="gate-error hidden" id="gate-error">wrong passcode</div>
-    </div>
-  </div>
-
   <!-- FIRST-RUN IDENTITY CARD -->
   <div class="modal hidden" id="modal-name">
     <div class="modal-card">
@@ -226,6 +252,48 @@
     </div>
   </div>
 
+  <!-- PERMISSION EXPLANATION -->
+  <div class="modal hidden" id="perm-modal">
+    <div class="modal-card">
+      <div class="modal-glyph"><svg viewBox="0 0 100 100"><polygon points="50,6 90,28 90,72 50,94 10,72 10,28"/></svg></div>
+      <h2 id="perm-title">Permission needed</h2>
+      <p class="dim" id="perm-body"></p>
+      <form id="perm-form">
+        <button type="submit" class="mini-btn" id="perm-allow">allow</button>
+        <button type="button" class="mini-btn ghost" id="perm-deny">not now</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOASTS -->
+  <div class="toasts" id="toasts"></div>
+
+</div>
+
+<!-- ================= WEB DECK ================= -->
+<div id="webdeck" class="webdeck hidden">
+  <div class="webdeck-bar">
+    <div class="webdeck-head">
+      <span class="webdeck-title" id="web-title">ALICE · web deck</span>
+      <div class="webdeck-actions">
+        <button class="icon-btn" id="web-back" title="Back"><svg class="ic"><use href="#i-back"/></svg></button>
+        <button class="icon-btn" id="web-forward" title="Forward"><svg class="ic"><use href="#i-forward"/></svg></button>
+        <button class="icon-btn" id="web-reload" title="Reload"><svg class="ic"><use href="#i-reload"/></svg></button>
+        <button class="icon-btn" id="web-open-tab" title="Open in new tab"><svg class="ic"><use href="#i-globe"/></svg></button>
+        <button class="icon-btn" id="web-close" title="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+    </div>
+    <form class="web-form" id="web-form">
+      <input id="web-address" type="text" placeholder="type a url or search…" autocomplete="off" spellcheck="false">
+      <button type="submit" class="mini-btn">go</button>
+    </form>
+    <div class="web-apps" id="web-apps"></div>
+  </div>
+  <div class="web-fallback hidden" id="web-fallback">
+    <span id="web-fallback-text">This site couldn't be reached from here.</span>
+    <button class="mini-btn" id="web-fallback-open">open in new tab</button>
+  </div>
+  <iframe id="web-frame" class="web-frame" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
 </div>
 
 <script type="module" src="js/main.js"></script>

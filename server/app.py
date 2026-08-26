@@ -12,7 +12,8 @@ from fastapi.staticfiles import StaticFiles
 
 from server import auth
 from server.routes import router
-from server.runtime import bus
+from server.runtime import bus, scheduler
+from server.webproxy import router as web_proxy
 from server.websocket import socket
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
         return await call_next(request)
 
     app.include_router(router)
+    app.include_router(web_proxy)
     app.websocket("/ws")(socket)
 
     @app.on_event("startup")
@@ -55,6 +57,14 @@ def create_app() -> FastAPI:
         import asyncio
 
         bus.bind(asyncio.get_running_loop())
+
+        # Wake the background reminder scheduler now that the bus can reach
+        # client queues. It is idempotent and safe to call again on reload.
+        scheduler.start()
+
+    @app.on_event("shutdown")
+    async def stop_bus():
+        scheduler.stop()
 
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 

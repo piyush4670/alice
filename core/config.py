@@ -73,7 +73,17 @@ AGENT_ASK_TIMEOUT = int(os.getenv("ALICE_AGENT_ASK_TIMEOUT", "600"))
 
 WORKSPACE_DIR = DATA_DIR / "workspace"
 
-ALICE_VERSION = "2.0"
+# ===========
+# Reminder scheduler
+# ===========
+
+# How often to check the reminder list for due reminders.
+REMINDER_CHECK_SECONDS = int(os.getenv("ALICE_REMINDER_CHECK_SECONDS", "20"))
+
+# How long after a reminder's target time it is still considered due.
+REMINDER_GRACE_SECONDS = int(os.getenv("ALICE_REMINDER_GRACE_SECONDS", str(6 * 60 * 60)))
+
+ALICE_VERSION = "3.0"
 
 # ===========
 # Context

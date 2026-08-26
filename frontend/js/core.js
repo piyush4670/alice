@@ -3,6 +3,7 @@
    and radiates when she speaks. State lives in the store. */
 
 import { state, subscribe } from "./state.js";
+import { level } from "./level.js";
 
 const COLORS = {
   idle: [79, 217, 255],
@@ -62,7 +63,8 @@ function draw() {
   ctx.clearRect(0, 0, w, w);
 
   const active = mode !== "idle";
-  const breathe = 1 + Math.sin(t * 2.2) * (active ? 0.05 : 0.025);
+  const micBoost = mode === "listening" ? level.value : 0;
+  const breathe = 1 + Math.sin(t * 2.2) * (active ? 0.05 : 0.025) + micBoost * 0.22;
 
   // halo
   const halo = ctx.createRadialGradient(c, c, 10, c, c, c * 0.95);

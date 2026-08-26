@@ -82,4 +82,16 @@ export const sfx = {
     tone(330, 0, 0.1, 0.02);
     tone(660, 0.1, 0.2, 0.025);
   },
+
+  wake() {
+    if (!enabled) return;
+    tone(520, 0, 0.09, 0.03, "triangle");
+    tone(980, 0.08, 0.13, 0.035, "triangle");
+  },
+
+  notify() {
+    if (!enabled) return;
+    tone(700, 0, 0.1, 0.03);
+    tone(1050, 0.1, 0.16, 0.03);
+  },
 };

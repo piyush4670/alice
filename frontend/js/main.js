@@ -4,8 +4,31 @@
 import { set, subscribe, aliceState, state } from "./state.js";
 import { on, send, start, pause as pauseBus, resume as resumeBus } from "./bus.js";
 import { startOrb } from "./core.js";
-import { initVoice, toggleSpeak } from "./voice.js";
+import {
+  initVoice,
+  toggleSpeak,
+  setWakeHandlers,
+  enableWakeWord,
+  disableWakeWord,
+  isWakeEnabled,
+  cancelSpeech,
+} from "./voice.js";
 import { setSoundEnabled, sfx } from "./sound.js";
+import { initAudio } from "./audio.js";
+import { initWebDock, onWebOpen, toggleWeb } from "./webdock.js";
+import {
+  ensurePermission,
+  notify,
+  setPermissionStatus,
+  canNotify,
+} from "./notify.js";
+import {
+  ensureAuth,
+  wireAuthGate,
+  runBoot,
+  scatterStars,
+  requestUnlock,
+} from "./startup.js";
 import {
   initComposer,
   onChatDelta,
@@ -13,6 +36,7 @@ import {
   showTyping,
   removeTyping,
   aliceSay,
+  submitText,
 } from "./chat.js";
 import {
   initMissionHandlers,
@@ -32,110 +56,49 @@ import {
   initArtifactViewer,
 } from "./panels.js";
 
-/* ---------------- Boot sequence ---------------- */
+/* ---------------- Toasts ---------------- */
 
-const BOOT_LINES = [
-  ["boot", "ALICE kernel 2.0 — cold start"],
-  ["ok", "cognitive core ............ online"],
-  ["ok", "memory lattice ............ mounted"],
-  ["ok", "tool registry ............. 19 instruments"],
-  ["ok", "mission engine ............ armed"],
-  ["ok", "voice interface ........... ready"],
-  ["ok", "event bus ................. live"],
-  ["boot", "handshake with mission control"],
-];
-
-function typeBoot() {
-
-  return new Promise((resolve) => {
-
-    const log = document.getElementById("boot-log");
-
-    let line = 0;
-    let char = 0;
-    let buffer = "";
-    let skipped = false;
-
-    const finish = () => {
-
-      if (skipped) return;
-
-      skipped = true;
-
-      document.getElementById("boot").classList.add("off");
-
-      resolve();
-    };
-
-    const step = () => {
-
-      if (skipped) return;
-
-      if (line >= BOOT_LINES.length) {
-        setTimeout(finish, 500);
-        return;
-      }
-
-      const [kind, text] = BOOT_LINES[line];
-
-      if (char === 0 && kind !== "boot") buffer += "  ";
-
-      if (char < text.length) {
-
-        buffer += text[char++];
-        log.innerHTML = buffer
-          .split("\n")
-          .map((l) => `<span>${l}</span>`)
-          .join("\n");
-
-        setTimeout(step, 8 + Math.random() * 14);
-
-      } else {
-
-        buffer += "\n";
-        line += 1;
-        char = 0;
-
-        setTimeout(step, 90);
-      }
-    };
-
-    document.getElementById("boot").addEventListener("click", finish);
-
-    step();
-  });
+function toast(text, kind = "info") {
+  const holder = document.getElementById("toasts");
+  const node = document.createElement("div");
+  node.className = `toast ${kind}`;
+  node.textContent = text;
+  holder.appendChild(node);
+  requestAnimationFrame(() => node.classList.add("show"));
+  setTimeout(() => {
+    node.classList.remove("show");
+    setTimeout(() => node.remove(), 300);
+  }, 2600);
 }
 
-/* ---------------- Ambient stars ---------------- */
+/* A small permission explainer — ALICE always says *why* before asking. */
+function askPermission({ title, body, onAllow }) {
+  const modal = document.getElementById("perm-modal");
+  document.getElementById("perm-title").textContent = title;
+  document.getElementById("perm-body").textContent = body;
 
-function scatterStars() {
+  modal.classList.remove("hidden");
 
-  const field = document.getElementById("stars");
-
-  for (let i = 0; i < 70; i++) {
-
-    const star = document.createElement("i");
-    star.className = "star";
-
-    star.style.left = `${Math.random() * 100}%`;
-    star.style.top = `${Math.random() * 100}%`;
-    star.style.animationDelay = `${Math.random() * 4}s`;
-    star.style.opacity = String(0.15 + Math.random() * 0.5);
-
-    if (Math.random() > 0.85) {
-      star.style.width = "3px";
-      star.style.height = "3px";
-      star.style.boxShadow = "0 0 6px rgba(190,235,255,0.9)";
-    }
-
-    field.appendChild(star);
-  }
+  return new Promise((resolve) => {
+    const finish = (ok) => {
+      modal.classList.add("hidden");
+      form.removeEventListener("submit", allow);
+      deny.removeEventListener("click", denyClick);
+      if (ok && onAllow) onAllow();
+      resolve(ok);
+    };
+    const allow = (e) => { e.preventDefault(); finish(true); };
+    const denyClick = () => finish(false);
+    const form = document.getElementById("perm-form");
+    const deny = document.getElementById("perm-deny");
+    form.addEventListener("submit", allow);
+    deny.addEventListener("click", denyClick);
+  });
 }
 
 /* ---------------- Identity ---------------- */
 
 function greet() {
-
   const linked = state.brain.mode === "linked";
   const name = state.user || "Boss";
 
@@ -147,9 +110,7 @@ function greet() {
 }
 
 function maybeAskName() {
-
   const modal = document.getElementById("modal-name");
-
   const saved = localStorage.getItem("alice.user");
 
   if (saved) {
@@ -160,16 +121,12 @@ function maybeAskName() {
   modal.classList.remove("hidden");
 
   document.getElementById("name-form").addEventListener("submit", (e) => {
-
     e.preventDefault();
-
     const name = document.getElementById("name-input").value.trim();
-
     if (name) {
       localStorage.setItem("alice.user", name);
       send({ type: "user.name", name });
     }
-
     modal.classList.add("hidden");
   });
 
@@ -181,7 +138,6 @@ function maybeAskName() {
 function wireBus() {
 
   on("hello", (event) => {
-
     set({
       identity: event.identity,
       brain: event.identity.brain,
@@ -206,7 +162,6 @@ function wireBus() {
   });
 
   on("chat.delta", (event) => {
-
     removeTyping();
     onChatDelta(event);
   });
@@ -223,101 +178,49 @@ function wireBus() {
   on("system.telemetry", onTelemetry);
   on("user.updated", (event) => set({ user: event.name }));
 
+  on("web.open", (event) => onWebOpen(event));
+
+  on("system.notify", (event) => {
+    notify(event.title || "Alice", event.body || "");
+    sfx.notify();
+  });
+
+  on("reminder.fire", (event) => {
+    notify(event.task || "Reminder", event.time ? `Scheduled: ${event.time}` : "");
+    sfx.notify();
+    aliceSay(`⏰ ${event.text}`, "reminder", `reminder-${event.resolved || Date.now()}`);
+  });
+
   on("pong", () => set({ link: "online" }));
 
   on("auth.required", () => {
-
     pauseBus();
-
-    document.getElementById("modal-gate").classList.remove("hidden");
-
     set({ link: "offline" });
-
-    const input = document.getElementById("gate-input");
-
-    if (input) setTimeout(() => input.focus(), 60);
-  });
-}
-
-/* ---------------- Passcode gate ---------------- */
-
-function wireGate() {
-
-  const form = document.getElementById("gate-form");
-  const input = document.getElementById("gate-input");
-  const error = document.getElementById("gate-error");
-
-  form.addEventListener("submit", async (e) => {
-
-    e.preventDefault();
-
-    const passcode = input.value.trim();
-
-    if (!passcode) return;
-
-    error.classList.add("hidden");
-
-    try {
-
-      const response = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passcode }),
-      });
-
-      if (response.ok) {
-
-        input.value = "";
-
-        document.getElementById("modal-gate").classList.add("hidden");
-
+    requestUnlock().then((ok) => {
+      if (ok) {
+        set({ link: "online" });
         resumeBus();
-
-        return;
       }
-
-      error.textContent = response.status === 429
-        ? "too many attempts — wait a minute"
-        : "wrong passcode";
-
-      error.classList.remove("hidden");
-
-      error.style.animation = "none";
-      void error.offsetWidth;          // restart the shake
-      error.style.animation = "";
-
-    } catch {
-
-      error.textContent = "cannot reach Alice";
-      error.classList.remove("hidden");
-    }
+    });
   });
 }
 
-/* ---------------- Status chips ---------------- */
+/* ---------------- Status chips + buttons ---------------- */
 
 function wireStatus() {
 
   subscribe((s) => {
-
-    const label = {
-      connecting: "linking",
-      online: "online",
-      offline: "offline",
-    }[s.link];
-
+    const label = { connecting: "linking", online: "online", offline: "offline" }[s.link];
     const linkLabel = document.getElementById("link-label");
-
     if (linkLabel.textContent !== label) linkLabel.textContent = label;
 
     document.getElementById("link-dot").style.background =
       s.link === "online" ? "var(--good)" : s.link === "offline" ? "var(--bad)" : "var(--warn)";
 
-    document.getElementById("link-dot").style.boxShadow = `0 0 8px currentColor`;
+    document.getElementById("link-dot").style.boxShadow = "0 0 8px currentColor";
 
     const brainLabel = document.getElementById("brain-label");
     const brainText = s.brain.mode === "linked" ? `linked · ${s.brain.label}` : "offline core";
-
     if (brainLabel.textContent !== brainText) brainLabel.textContent = brainText;
 
     const stateLabels = {
@@ -332,7 +235,6 @@ function wireStatus() {
 
     const stateLabel = document.getElementById("state-label");
     const orbState = document.getElementById("orb-state");
-
     const text = stateLabels[s.aliceState] || s.aliceState;
 
     if (stateLabel.textContent !== text) {
@@ -340,61 +242,179 @@ function wireStatus() {
       orbState.textContent = text;
     }
 
-    /* speaking indicator */
+    /* speaking / listening indication */
     const wave = document.getElementById("wave");
     wave.classList.toggle("on", s.speak && s.aliceState !== "boot");
+
+    const wakeHint = document.getElementById("wake-hint");
+    wakeHint.classList.toggle("hidden", !s.wake);
+    const wakeText = document.getElementById("wake-hint-text");
+    if (wakeText && s.wake) wakeText.textContent = "listening for your instruction…";
+
+    updateWakeButton();
+    updateNotifyButton();
   });
 
   document.getElementById("btn-voice").addEventListener("click", (e) => {
-
     const on = toggleSpeak();
-
     e.currentTarget.setAttribute("aria-pressed", String(on));
-
     if (on) aliceSay("Voice online. I'll read my replies aloud from here.", null, `voice-${Date.now()}`);
   });
 
   document.getElementById("btn-sound").addEventListener("click", (e) => {
-
     const next = e.currentTarget.getAttribute("aria-pressed") !== "true";
-
     e.currentTarget.setAttribute("aria-pressed", String(next));
     setSoundEnabled(next);
-
     if (next) sfx.message();
   });
 
-  /* heartbeat ping */
   setInterval(() => send({ type: "ping" }), 20000);
+}
+
+/* ---------------- Voice / hands-free ---------------- */
+
+function updateWakeButton() {
+  const btn = document.getElementById("btn-wake");
+  const on = isWakeEnabled();
+  btn.setAttribute("aria-pressed", String(on));
+  btn.classList.toggle("active", on);
+  btn.title = on ? "Hands-free on — tap to mute" : "Hands-free — say “Hey Alice”";
+}
+
+function updateNotifyButton() {
+  const btn = document.getElementById("btn-notify");
+  const on = canNotify();
+  btn.setAttribute("aria-pressed", String(on));
+  btn.classList.toggle("active", on);
+  btn.title = on ? "Notifications on" : "Enable notifications";
+}
+
+function wakeInterim(text) {
+  const hint = document.getElementById("wake-hint");
+  const label = document.getElementById("wake-hint-text");
+  if (label) label.textContent = text ? `“${text}”` : "listening for your instruction…";
+}
+
+function wireVoice() {
+  setWakeHandlers({
+    onWake: () => {
+      set({ wake: true, listening: true });
+      sfx.wake();
+      aliceState("listening");
+    },
+    onCommand: (command) => {
+      aliceState("thinking");
+      submitText(command);
+    },
+    onInterim: wakeInterim,
+    onPermissionDenied: () => {
+      disableWakeWord();
+      toast("Mic permission denied — hands-free off", "warn");
+    },
+  });
+
+  document.getElementById("btn-wake").addEventListener("click", async () => {
+    if (isWakeEnabled()) {
+      disableWakeWord();
+      cancelSpeech();
+      toast("Hands-free off");
+      return;
+    }
+
+    const ok = await askPermission({
+      title: "Enable hands-free?",
+      body: "To hear “Hey Alice” at any time and interrupt me mid-sentence, I need microphone access. Your audio is processed right here in your browser and never sent to a server.",
+      onAllow: async () => {
+        const started = await enableWakeWord();
+        if (started) toast("Hands-free online — say “Hey Alice”");
+        else toast("Hands-free couldn't start on this device", "warn");
+      },
+    });
+
+    if (ok) updateWakeButton();
+  });
+}
+
+/* ---------------- Web deck ---------------- */
+
+function wireWeb() {
+  initWebDock();
+}
+
+/* ---------------- Notifications ---------------- */
+
+function wireNotify() {
+  setPermissionStatus();
+
+  document.getElementById("btn-notify").addEventListener("click", async () => {
+    if (canNotify()) {
+      toast("Notifications already enabled");
+      return;
+    }
+
+    const ok = await askPermission({
+      title: "Enable notifications?",
+      body: "I'd like to ping you when a long mission finishes, a background task completes, or a reminder is due — even while the tab is in the background. I only ever send these after this permission.",
+      onAllow: () => ensurePermission(),
+    });
+
+    if (ok) {
+      toast("Notifications enabled");
+      updateNotifyButton();
+      notify("ALICE", "Notifications are online. I'll ping you when something's ready.");
+    }
+  });
 }
 
 /* ---------------- Launch ---------------- */
 
 async function main() {
-
   scatterStars();
-
   startOrb();
+  initAudio();
   startClock();
   initMemory();
   initArtifactViewer();
   initMissionHandlers();
   initComposer();
   initVoice();
-
   wireBus();
   wireStatus();
-  wireGate();
+  wireVoice();
+  wireWeb();
+  wireNotify();
+  wireAuthGate();
 
+  // 1. Secure access first.
+  const unlocked = await ensureAuth();
+
+  // 2. Cinematic boot only once you're in.
+  if (unlocked) {
+    await runBoot();
+    set({ booted: true });
+    sfx.boot();
+    document.getElementById("app").classList.remove("hidden");
+    aliceState("idle");
+  }
+
+  // 3. Open the live wire.
   start();
 
-  await typeBoot();
+  // 4. Make ALICE installable as a PWA (never blocks the boot).
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/service-worker.js").catch(() => { /* offline unsupported */ });
+  }
 
-  set({ booted: true });
-
-  sfx.boot();
-
-  aliceState("idle");
+  // Deep-link: /?action=mission pre-arms the composer for a mission.
+  const action = new URLSearchParams(location.search).get("action");
+  if (action === "mission") {
+    state.mode = "mission";
+    const picker = document.getElementById("mode-picker");
+    const missionBtn = picker.querySelector('button[data-mode="mission"]');
+    if (missionBtn) {
+      picker.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === missionBtn));
+    }
+  }
 
   refreshMission();
 }
