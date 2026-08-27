@@ -113,7 +113,7 @@
       <button class="icon-btn" id="btn-wake" title="Hands-free — say “Hey Alice”" aria-pressed="false"><svg class="ic"><use href="#i-ear"/></svg></button>
       <button class="icon-btn" id="btn-web" title="Open the web deck"><svg class="ic"><use href="#i-globe"/></svg></button>
       <button class="icon-btn" id="btn-notify" title="Enable notifications" aria-pressed="false"><svg class="ic"><use href="#i-bell"/></svg></button>
-      <button class="icon-btn" id="btn-voice" title="Alice speaks" aria-pressed="false"><svg class="ic"><use href="#i-wave"/></svg></button>
+      <button class="icon-btn" id="btn-voice" title="Alice speaks — tap so she reads replies aloud" aria-pressed="false"><svg class="ic"><use href="#i-wave"/></svg></button>
       <button class="icon-btn" id="btn-sound" title="Interface sounds" aria-pressed="true"><svg class="ic"><use href="#i-star"/></svg></button>
       <div class="clock"><div id="clock-time">--:--</div><div id="clock-date">—</div></div>
     </div>
@@ -177,10 +177,10 @@
           <button type="button" data-mode="mission">mission</button>
         </div>
         <textarea id="input" rows="1" placeholder="Talk to Alice…  (mission: for a full task)"></textarea>
-        <button type="button" class="icon-btn big" id="btn-mic" title="Speak"><svg class="ic"><use href="#i-mic"/></svg></button>
+        <button type="button" class="icon-btn big" id="btn-mic" title="Tap to speak" aria-pressed="false"><svg class="ic"><use href="#i-mic"/></svg></button>
         <button type="submit" class="send-btn" id="btn-send" title="Send"><svg class="ic"><use href="#i-send"/></svg></button>
       </form>
-      <div class="composer-hint" id="composer-hint">enter to send · shift+enter for a new line</div>
+      <div class="composer-hint" id="composer-hint">tap mic to talk · enter to send · wave button makes Alice speak</div>
     </section>
 
     <!-- RIGHT RAIL: MISSION CONTROL -->

@@ -105,16 +105,24 @@ def chat(messages, json_mode=False, temperature=0.6) -> str:
 
 
 def chat_stream(messages, temperature=0.6):
-    """Yield text chunks as they arrive. Raises BrainUnavailable."""
+    """Yield text chunks as they arrive. Raises BrainUnavailable.
+
+    Requests SSE streaming explicitly. If the provider returns a normal
+    JSON body instead (some proxies strip `stream`), we still yield the
+    full message so Alice never goes silent.
+    """
 
     if not has_api_key():
         raise BrainUnavailable("No API key configured.")
+
+    body = payload(messages, temperature=temperature)
+    body["stream"] = True
 
     try:
         response = requests.post(
             BASE_URL,
             headers=headers(),
-            json=payload(messages, temperature=temperature),
+            json=body,
             timeout=REQUEST_TIMEOUT,
             stream=True,
         )
@@ -125,11 +133,48 @@ def chat_stream(messages, temperature=0.6):
         raise BrainUnavailable(f"Provider unreachable: {exc}") from exc
 
     collected = []
+    content_type = (response.headers.get("content-type") or "").lower()
+
+    # Non-SSE fallback: some gateways ignore stream=true and return JSON.
+    if "application/json" in content_type and "text/event-stream" not in content_type:
+
+        try:
+            data = response.json()
+            text = data["choices"][0]["message"]["content"].strip()
+        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            raise BrainUnavailable(f"Unexpected provider reply: {exc}") from exc
+
+        if not text:
+            raise BrainUnavailable("Model returned an empty reply.")
+
+        yield text
+        return
 
     try:
         for line in response.iter_lines(decode_unicode=True):
 
-            if not line or not line.startswith("data:"):
+            if not line:
+                continue
+
+            if isinstance(line, bytes):
+                try:
+                    line = line.decode("utf-8", errors="replace")
+                except Exception:
+                    continue
+
+            if not line.startswith("data:"):
+                # Some providers send the whole JSON as one non-SSE body
+                # chunk without a proper content-type — try once.
+                if line.lstrip().startswith("{") and not collected:
+                    try:
+                        data = json.loads(line)
+                        text = data["choices"][0]["message"]["content"].strip()
+                        if text:
+                            collected.append(text)
+                            yield text
+                            return
+                    except (ValueError, KeyError, IndexError, TypeError):
+                        pass
                 continue
 
             data = line[5:].strip()
@@ -143,8 +188,12 @@ def chat_stream(messages, temperature=0.6):
                 continue
 
             try:
-                piece = chunk["choices"][0]["delta"].get("content") or ""
-
+                delta = chunk["choices"][0].get("delta") or {}
+                piece = delta.get("content") or ""
+                # A few providers put the full message on the final chunk.
+                if not piece:
+                    msg = chunk["choices"][0].get("message") or {}
+                    piece = msg.get("content") or ""
             except (KeyError, IndexError, TypeError):
                 continue
 
@@ -156,6 +205,16 @@ def chat_stream(messages, temperature=0.6):
         raise BrainUnavailable(f"Stream interrupted: {exc}") from exc
 
     if not "".join(collected).strip():
+        # Last resort: non-stream completion so the user still gets an answer.
+        try:
+            text = chat(messages, temperature=temperature)
+        except BrainUnavailable:
+            raise BrainUnavailable("Model returned an empty reply.")
+
+        if text:
+            yield text
+            return
+
         raise BrainUnavailable("Model returned an empty reply.")
 
 

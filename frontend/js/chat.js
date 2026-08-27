@@ -3,7 +3,15 @@
 import { md, plain } from "./md.js";
 import { state, aliceState } from "./state.js";
 import { send } from "./bus.js";
-import { speak, startListening, stopListening, canListen } from "./voice.js";
+import {
+  speak,
+  startListening,
+  stopListening,
+  canListen,
+  isListening,
+  unlockAudio,
+  cancelSpeech,
+} from "./voice.js";
 import { sfx } from "./sound.js";
 
 const streamEl = () => document.getElementById("stream");
@@ -87,9 +95,15 @@ export function onChatDone(event) {
   scrollDown();
 
   sfx.message();
-  speak(event.message || entry.text);
 
-  if (state.aliceState === "thinking") aliceState("idle");
+  // Always try to speak when voice is on — speak() itself no-ops if muted.
+  const reply = event.message || entry.text;
+  if (reply) speak(reply);
+
+  if (state.aliceState === "thinking" || state.aliceState === "speaking") {
+    // speak() flips aliceState to "speaking"; leave it alone if audio started.
+    if (!state.speaking && state.aliceState === "thinking") aliceState("idle");
+  }
 }
 
 export function showTyping(mid = "typing") {
@@ -174,34 +188,46 @@ export function initComposer() {
 
   if (!canListen()) mic.classList.add("hidden");
 
-  mic.addEventListener("click", () => {
+  // Tap to talk: first tap starts recording, second tap (or auto-stop)
+  // finishes and sends. MediaRecorder+Whisper is the Android-safe path.
+  const setMicUi = (on) => {
+    dictating = on;
+    mic.classList.toggle("listening", on);
+    mic.setAttribute("aria-pressed", String(on));
+    mic.title = on ? "Tap to send" : "Tap to speak";
+    const hint = document.getElementById("composer-hint");
+    if (hint) {
+      hint.dataset.default = hint.dataset.default || hint.textContent;
+      hint.textContent = on
+        ? "listening… tap mic again when you're done"
+        : hint.dataset.default;
+    }
+  };
 
-    if (dictating) {
+  mic.addEventListener("click", (e) => {
+    e.preventDefault();
+    unlockAudio();
+    cancelSpeech(); // don't talk over the user
 
+    if (dictating || isListening()) {
       stopListening();
-      dictating = false;
-      mic.classList.remove("listening");
-
+      // Media path finalises asynchronously via the callback below.
+      // Webkit path may already have a final result; either way UI resets
+      // when the callback fires or immediately if nothing was captured.
+      if (!isListening()) setMicUi(false);
       return;
     }
 
     const started = startListening((text, final) => {
-
-      input.value = text;
+      if (text) input.value = text;
 
       if (final) {
-
-        dictating = false;
-        mic.classList.remove("listening");
-
-        submit();
+        setMicUi(false);
+        if (text && text.trim()) submit();
       }
     });
 
-    if (started) {
-      dictating = true;
-      mic.classList.add("listening");
-    }
+    if (started) setMicUi(true);
   });
 
   document.querySelectorAll(".q-chip").forEach((chip) => {

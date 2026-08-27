@@ -12,6 +12,8 @@ import {
   disableWakeWord,
   isWakeEnabled,
   cancelSpeech,
+  unlockAudio,
+  speak,
 } from "./voice.js";
 import { setSoundEnabled, sfx } from "./sound.js";
 import { initAudio } from "./audio.js";
@@ -103,10 +105,13 @@ function greet() {
   const name = state.user || "Boss";
 
   const lines = linked
-    ? `All systems online, ${name}. Full reasoning core linked — I can plan, search, act and stay on a task until it's done.\nStart a mission with **mission:** or just ask. 💙`
-    : `Systems online, ${name}. I'm running on my offline core — memory, planning, tools and missions all work. Add an API key to *.env* to wake my full reasoning core.\nStart a mission with **mission:**. 💙`;
+    ? `All systems online, ${name}. Full reasoning core linked — I can plan, search, act and stay on a task until it's done.
+Start a mission with **mission:** or just ask. 💙`
+    : `Systems online, ${name}. I'm running on my offline core — memory, planning, tools and missions all work. I can still chat, take notes, set reminders and run missions. Add an API key to *.env* for my full reasoning core.
+Start a mission with **mission:**, or just talk to me. 💙`;
 
   aliceSay(lines, "online", "greeting");
+  if (state.speak) speak(lines);
 }
 
 function maybeAskName() {
@@ -188,7 +193,9 @@ function wireBus() {
   on("reminder.fire", (event) => {
     notify(event.task || "Reminder", event.time ? `Scheduled: ${event.time}` : "");
     sfx.notify();
-    aliceSay(`⏰ ${event.text}`, "reminder", `reminder-${event.resolved || Date.now()}`);
+    const line = event.text || event.task || "Reminder";
+    aliceSay(`⏰ ${line}`, "reminder", `reminder-${event.resolved || Date.now()}`);
+    if (state.speak) speak(line);
   });
 
   on("pong", () => set({ link: "online" }));
@@ -256,10 +263,30 @@ function wireStatus() {
   });
 
   document.getElementById("btn-voice").addEventListener("click", (e) => {
+    unlockAudio();
     const on = toggleSpeak();
     e.currentTarget.setAttribute("aria-pressed", String(on));
-    if (on) aliceSay("Voice online. I'll read my replies aloud from here.", null, `voice-${Date.now()}`);
+    e.currentTarget.classList.toggle("active", on);
+    if (on) {
+      const line = "Voice online. I'll read my replies aloud from here.";
+      aliceSay(line, null, `voice-${Date.now()}`);
+      // Speak immediately so the user hears Alice right away.
+      speak(line);
+      toast("Alice will speak her replies", "good");
+    } else {
+      toast("Alice muted");
+    }
   });
+
+  // Reflect speak preference on the button (default ON so Alice talks).
+  const voiceBtn = document.getElementById("btn-voice");
+  if (voiceBtn) {
+    voiceBtn.setAttribute("aria-pressed", String(Boolean(state.speak)));
+    voiceBtn.classList.toggle("active", Boolean(state.speak));
+    voiceBtn.title = state.speak
+      ? "Alice speaks — tap to mute"
+      : "Alice muted — tap so she reads replies aloud";
+  }
 
   document.getElementById("btn-sound").addEventListener("click", (e) => {
     const next = e.currentTarget.getAttribute("aria-pressed") !== "true";
@@ -311,9 +338,13 @@ function wireVoice() {
       disableWakeWord();
       toast("Mic permission denied — hands-free off", "warn");
     },
+    onError: (message) => {
+      toast(message || "Mic error", "warn");
+    },
   });
 
   document.getElementById("btn-wake").addEventListener("click", async () => {
+    unlockAudio();
     if (isWakeEnabled()) {
       disableWakeWord();
       cancelSpeech();
@@ -323,16 +354,25 @@ function wireVoice() {
 
     const ok = await askPermission({
       title: "Enable hands-free?",
-      body: "To hear “Hey Alice” at any time and interrupt me mid-sentence, I need microphone access. Your audio is processed right here in your browser and never sent to a server.",
+      body: "To hear “Hey Alice” at any time and interrupt me mid-sentence, I need microphone access. On Android, the mic button (tap-to-talk) is the most reliable way to speak to me — hands-free works best on desktop Chrome.",
       onAllow: async () => {
         const started = await enableWakeWord();
-        if (started) toast("Hands-free online — say “Hey Alice”");
-        else toast("Hands-free couldn't start on this device", "warn");
+        if (started) toast("Hands-free online — say “Hey Alice”", "good");
+        else toast("Hands-free unavailable here — use the mic button instead", "warn");
       },
     });
 
     if (ok) updateWakeButton();
   });
+
+  // Unlock audio on first user gesture anywhere — required for Android TTS.
+  const unlockOnce = () => {
+    unlockAudio();
+    document.removeEventListener("pointerdown", unlockOnce, true);
+    document.removeEventListener("keydown", unlockOnce, true);
+  };
+  document.addEventListener("pointerdown", unlockOnce, true);
+  document.addEventListener("keydown", unlockOnce, true);
 }
 
 /* ---------------- Web deck ---------------- */

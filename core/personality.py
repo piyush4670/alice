@@ -98,11 +98,14 @@ DATE_REPLY = "Today is {date}."
 # -----------------------------
 
 AI_UNAVAILABLE = (
-    "My AI brain is temporarily unavailable, {title}. "
-    "Please try again in a moment."
+    "My linked reasoning core is briefly unreachable, {title}. "
+    "I've switched to my offline core — reminders, notes, missions, "
+    "search and tools still work. Try again in a moment for full chat."
 )
 
 AI_NO_KEY = (
-    "My AI brain isn't configured yet, {title}. "
-    "Add an API_KEY to your .env file and I'll be right back."
+    "My full free-form reasoning core needs an API key, {title}. "
+    "Add a free key from console.groq.com to your .env as API_KEY. "
+    "Until then I can still chat about what I can do, remember facts, "
+    "set reminders, take notes, do maths, search the web and run missions."
 )

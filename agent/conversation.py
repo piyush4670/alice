@@ -2,6 +2,10 @@
 
 Reuses the existing router for every local destination so the CLI and
 the web UI behave identically; only open-ended messages reach the brain.
+
+When the linked brain is unreachable, we fall back to the local brain so
+Alice never greets the user with a bare "AI brain unavailable" message
+if the offline core can still help.
 """
 
 from core.context import add_message, get_history
@@ -63,13 +67,9 @@ def _reply_with_brain(message: str, emit, brain) -> None:
 
     except Exception:
 
-        from core.personality import AI_UNAVAILABLE, boss
-
-        text = AI_UNAVAILABLE.format(title=boss())
-
-        emit({"type": "chat.delta", "mid": mid, "text": text})
-
-        chunks = [text]
+        # Linked brain failed mid-flight — hand off to the offline core
+        # instead of apologising and going silent.
+        chunks = list(_fallback_local(message, history, stored, emit, mid))
 
     # Forward side-effect events (web.open / system.notify) that a tool
     # produced so the UI can open the web deck or raise a notification.
@@ -78,9 +78,47 @@ def _reply_with_brain(message: str, emit, brain) -> None:
 
     full = "".join(chunks)
 
+    # If the linked brain yielded nothing usable, try the local core once.
+    if not full.strip():
+        chunks = list(_fallback_local(message, history, stored, emit, mid))
+        full = "".join(chunks)
+
     emit({"type": "chat.done", "mid": mid, "message": full})
 
     add_message("assistant", full)
+
+
+def _fallback_local(message, history, stored, emit, mid):
+    """Yield chunks from the local brain, emitting deltas as they arrive."""
+
+    from agent.local_brain import LocalBrain
+
+    local = LocalBrain()
+    produced = []
+
+    try:
+
+        for chunk in local.converse(message, history, stored):
+
+            if not chunk:
+                continue
+
+            produced.append(chunk)
+            emit({"type": "chat.delta", "mid": mid, "text": chunk})
+
+        # Propagate any side-effects the local brain recorded.
+        for effect in getattr(local, "last_side_effects", None) or []:
+            emit(effect)
+
+    except Exception:
+
+        from core.personality import AI_UNAVAILABLE, boss
+
+        text = AI_UNAVAILABLE.format(title=boss())
+        produced = [text]
+        emit({"type": "chat.delta", "mid": mid, "text": text})
+
+    return produced
 
 
 def _emit_message(emit, text: str, source="system", data=None):
