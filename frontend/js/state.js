@@ -14,7 +14,7 @@ export const state = {
   activeTask: null,     // id of a running mission (routing)
   focusTask: null,      // id of the mission shown in the panel (may be closed)
   mode: "auto",         // composer mode
-  speak: false,         // ALICE reads replies aloud
+  speak: true,          // ALICE reads replies aloud (on by default — mute via wave button)
   speaking: false,      // a TTS utterance is currently playing
   sound: true,
   booted: false,

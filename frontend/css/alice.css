@@ -587,12 +587,23 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 
 .icon-btn.listening {
   color: var(--teal); border-color: rgba(56, 230, 196, 0.5);
+  background: rgba(56, 230, 196, 0.12);
   animation: listenPulse 1.4s ease-in-out infinite;
 }
 
 @keyframes listenPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(56, 230, 196, 0.4); }
-  50% { box-shadow: 0 0 0 7px rgba(56, 230, 196, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(56, 230, 196, 0.45); }
+  50% { box-shadow: 0 0 0 10px rgba(56, 230, 196, 0); }
+}
+
+/* Bigger mic target on phones — easier tap-to-talk. */
+@media (max-width: 720px) {
+  .icon-btn.big#btn-mic {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+  }
+  .icon-btn.big#btn-mic .ic { width: 22px; height: 22px; }
+  .composer { padding: 12px 10px; gap: 10px; }
 }
 
 .send-btn {

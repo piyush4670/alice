@@ -11,7 +11,7 @@ Strategy:
 Bump VERSION to invalidate old caches after a deploy.
 */
 
-const VERSION = "alice-shell-v2.1";
+const VERSION = "alice-shell-v3.2-voice";
 const CACHE_NAME = `${VERSION}-assets`;
 const STATIC_ASSETS = [
   "/",

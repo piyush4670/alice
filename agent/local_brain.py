@@ -8,7 +8,7 @@ all still execute. Only free-form conversation explains its limits.
 
 import re
 
-from core.personality import AI_NO_KEY, boss
+from core.personality import boss
 from tools.registry import execute
 
 from agent.brain import (
@@ -538,7 +538,14 @@ class LocalBrain(Brain):
     def converse(self, message: str, history: list, memory: dict):
 
         text = (message or "").strip()
-        lowered = text.lower()
+        lowered = text.lower().strip()
+        self.last_side_effects = []
+
+        # ---- Built-in conversational replies (no API key required) ----
+        canned = _canned_reply(lowered, text, memory)
+        if canned:
+            yield canned
+            return
 
         # Factual questions still work offline through Wikipedia.
         for starter in QUESTION_STARTERS:
@@ -562,31 +569,40 @@ class LocalBrain(Brain):
         # maths, set a reminder — run the tool instead of apologising for the
         # missing reasoning core.
         hint, payload = classify(text)
-        self.last_side_effects = []
 
-        if hint in ("browser", "calculator", "wikipedia", "search", "time", "date"):
+        if hint in ("browser", "calculator", "wikipedia", "search", "time", "date",
+                    "reminder", "note", "todo", "memory"):
 
             tool, args = self._single_tool(hint, payload, text)
 
-            result = execute(tool, args)
+            if tool != "answer":
 
-            data = result.data if isinstance(result.data, dict) else {}
+                result = execute(tool, args)
 
-            # Surface live side-effects the same way missions do.
-            if isinstance(data.get("web"), dict) and data["web"].get("url"):
-                self.last_side_effects.append(
-                    {"type": "web.open", "url": data["web"]["url"], "title": data["web"].get("title", "")}
-                )
+                data = result.data if isinstance(result.data, dict) else {}
 
-            if isinstance(data.get("notify"), dict):
-                self.last_side_effects.append(
-                    {"type": "system.notify", "title": data["notify"].get("title", "Alice"), "body": data["notify"].get("body", "")}
-                )
+                # Surface live side-effects the same way missions do.
+                if isinstance(data.get("web"), dict) and data["web"].get("url"):
+                    self.last_side_effects.append(
+                        {"type": "web.open", "url": data["web"]["url"], "title": data["web"].get("title", "")}
+                    )
 
-            yield result.output if result.ok else result.output
+                if isinstance(data.get("notify"), dict):
+                    self.last_side_effects.append(
+                        {"type": "system.notify", "title": data["notify"].get("title", "Alice"), "body": data["notify"].get("body", "")}
+                    )
+
+                yield result.output if result.ok else result.output
+                return
+
+        # Memory recall: "what's my name", "what do you know about me".
+        recall = _try_recall(lowered, memory)
+        if recall:
+            yield recall
             return
 
-        yield AI_NO_KEY.format(title=boss())
+        # Honest, useful offline reply — never a dead "brain not working".
+        yield _offline_help(text)
 
     def _single_tool(self, hint: str, payload: str, detail: str):
         """Map a classified intent to (tool, args) for a hands-on command."""
@@ -611,4 +627,128 @@ class LocalBrain(Brain):
         if hint == "date":
             return ("current_date", {})
 
+        if hint == "reminder":
+            return ("add_reminder", {"reminder": payload or detail})
+
+        if hint == "note":
+            return ("add_note", {"note": payload or detail})
+
+        if hint == "todo":
+            return ("add_todo", {"task": payload or detail})
+
+        if hint == "memory":
+            return ("remember", {"pair": payload or detail})
+
         return ("answer", {})
+
+
+# ===========
+# Offline conversation helpers
+# ===========
+
+def _canned_reply(lowered: str, original: str, memory: dict):
+    """Short deterministic replies for common chat that needs no LLM."""
+
+    title = boss()
+    name = (
+        memory.get("name")
+        or memory.get("user")
+        or memory.get("my name")
+        or title
+    )
+
+    # Identity / capability.
+    if re.search(r"\b(who are you|what(?:'s| is) your name|what are you)\b", lowered):
+        return (
+            "I'm ALICE — Artificial Learning Intelligent Cognitive Engine. "
+            f"Your personal assistant, {name}. I remember, I plan, I work, "
+            "and I stay with a task until it's finished. 💙"
+        )
+
+    if re.search(r"\b(what can you do|help|your (?:abilities|capabilities|features)|how do you work)\b", lowered):
+        return (
+            f"Here's what I can do right now, {title}:\n"
+            "• Chat, remember facts, take notes and manage to-dos\n"
+            "• Set reminders that fire on time\n"
+            "• Do maths, tell the time and date\n"
+            "• Search the web, look up Wikipedia, open sites in the web deck\n"
+            "• Run full missions — say **mission:** followed by a goal\n"
+            "• Speak and listen — tap the wave button so I talk, tap the mic to talk to me\n"
+            "Add an API_KEY to .env for my full free-form reasoning core."
+        )
+
+    if re.search(r"\b(how are you|how(?:'s| is) it going|you okay|are you (?:ok|okay|there))\b", lowered):
+        return f"All systems nominal, {name}. Ready when you are."
+
+    if re.search(r"\b(thank(?:s| you)|appreciate it|cheers)\b", lowered):
+        return f"Anytime, {name}. 💙"
+
+    if re.search(r"\b(good (?:morning|afternoon|evening|night)|hello|hi|hey|yo)\b", lowered) and len(lowered.split()) <= 4:
+        return f"Hey {name}. I'm here — what do you need?"
+
+    if re.search(r"\b(what time is it|what(?:'s| is) the time|current time|time now)\b", lowered):
+        result = execute("current_time", {})
+        return result.output
+
+    if re.search(r"\b(what(?:'s| is) (?:the |today(?:'s)? )?date|what day is it|today(?:'s)? date)\b", lowered):
+        result = execute("current_date", {})
+        return result.output
+
+    if re.search(r"\b(tell me a joke|make me laugh|say something funny)\b", lowered):
+        return (
+            f"Why did the neural net go to therapy, {title}? "
+            "Too many unresolved dependencies. …I'll see myself out."
+        )
+
+    if re.search(r"\b(are you (?:real|an? ai|a bot|human)|are you listening)\b", lowered):
+        return (
+            f"I'm ALICE, a real assistant running on your machine, {name}. "
+            "Not human — but fully present and paying attention."
+        )
+
+    return None
+
+
+def _try_recall(lowered: str, memory: dict):
+    """Answer simple 'what do you know / what's my X' from stored memory."""
+
+    if not memory:
+        if re.search(r"\b(what do you know|what have you remembered|list (?:my )?memory|what(?:'s| is) my )\b", lowered):
+            return f"I don't know anything about you yet, {boss()}. Tell me something to remember."
+        return None
+
+    if re.search(r"\b(what do you know(?: about me)?|what have you remembered|list (?:my )?memory|show (?:my )?memory)\b", lowered):
+        lines = [f"• **{k}**: {v}" for k, v in memory.items()]
+        return "Here's what I know about you:\n" + "\n".join(lines)
+
+    match = re.search(r"\bwhat(?:'s| is) my ([a-z ]{1,40})\??$", lowered)
+    if match:
+        key = match.group(1).strip()
+        # Direct hit or loose contains.
+        if key in memory:
+            return f"Your {key} is {memory[key]}."
+        for k, v in memory.items():
+            if key in k or k in key:
+                return f"Your {k} is {v}."
+        return f"I don't know your {key} yet, {boss()}."
+
+    return None
+
+
+def _offline_help(text: str) -> str:
+    """Friendly offline fallback — never the old 'brain not working' dead end."""
+
+    title = boss()
+    snippet = (text or "").strip()
+    if len(snippet) > 80:
+        snippet = snippet[:77] + "…"
+
+    return (
+        f"I caught that, {title}"
+        + (f" — “{snippet}”" if snippet else "")
+        + ". My full free-form reasoning core needs an API key "
+        "(free at console.groq.com — put it in `.env` as `API_KEY`). "
+        "Until then I can still help with reminders, notes, to-dos, memory, "
+        "maths, time, web search, Wikipedia, opening sites, and full "
+        "**mission:** tasks. What would you like to do?"
+    )

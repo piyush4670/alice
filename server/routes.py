@@ -1,7 +1,7 @@
-"""REST routes: auth, system, tasks, memory, board and artifacts."""
+"""REST routes: auth, system, tasks, memory, board, artifacts and voice."""
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 
 
@@ -12,11 +12,16 @@ from plugins.reminder import load_reminders
 from plugins.todo import load_tasks as load_todos
 from tools.manage import remember as remember_tool
 from tools.workspace import sanitise
+from voice.transcribe import TranscribeError, transcribe
+from voice.tts import synthesize
 
 from server import auth, telemetry
 from server.runtime import orchestrator
 
 router = APIRouter(prefix="/api")
+
+# Keep uploads modest — a spoken command is rarely more than a few seconds.
+MAX_AUDIO_BYTES = 8 * 1024 * 1024
 
 
 class PasscodeBody(BaseModel):
@@ -35,6 +40,11 @@ class MissionBody(BaseModel):
 
 class AnswerBody(BaseModel):
     text: str
+
+
+class SpeakBody(BaseModel):
+    text: str = ""
+    voice: str = ""
 
 
 # ===========
@@ -91,6 +101,68 @@ def system():
 @router.get("/health")
 def health():
     return {"ok": True}
+
+
+# ===========
+# Voice
+# ===========
+
+@router.post("/voice/transcribe")
+async def voice_transcribe(
+    audio: UploadFile = File(...),
+    language: str = Form("en"),
+):
+    """Android-friendly speech-to-text.
+
+    The browser records with MediaRecorder and posts the clip here. We
+    hand it to Whisper so recognition works even when Chrome's built-in
+    Web Speech API is flaky (very common on Android).
+    """
+
+    raw = await audio.read()
+
+    if not raw:
+        raise HTTPException(400, "Empty recording.")
+
+    if len(raw) > MAX_AUDIO_BYTES:
+        raise HTTPException(413, "Recording too long — keep it under ~60 seconds.")
+
+    content_type = audio.content_type or "audio/webm"
+
+    try:
+        text = transcribe(raw, content_type=content_type, language=language or "en")
+    except TranscribeError as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+    return {"text": text, "ok": True}
+
+
+@router.post("/voice/speak")
+async def voice_speak(body: SpeakBody):
+    """Server-side TTS. Returns audio/mpeg the browser can play directly.
+
+    Preferred over the flaky Android Web Speech API — Alice always has a
+    voice when an API key is configured.
+    """
+
+    text = (body.text or "").strip()
+
+    if not text:
+        raise HTTPException(400, "Nothing to speak.")
+
+    try:
+        audio, mime = synthesize(text, voice=body.voice or "")
+    except Exception as exc:
+        raise HTTPException(502, str(exc) or "Speech synthesis failed.") from exc
+
+    return Response(
+        content=audio,
+        media_type=mime,
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Disposition": 'inline; filename="alice.mp3"',
+        },
+    )
 
 
 # ===========
